@@ -12,13 +12,14 @@ public class Input : MonoBehaviour {
         j = new Joycon();
         tr = GetComponent<Transform>();
         //tr.Rotate(0.5f, 0.5f, 0.5f);
-        j.attach();
-        j.init(0x0);
+        if (j.attach() != -1) {
+            j.init(0x0);
+        }
     }
 
     // Update is called once per frame
-    void Update () {
-        j.poll();
+    void Update() {
+        if (j.alive) { j.poll(); };
     }
     // FixedUpdate is called before physics are applied each frame
     private void FixedUpdate()

@@ -11,17 +11,20 @@ public class Joycon {
     private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
     private byte global_count = 0;
     public bool isleft;
+    public bool alive=false;
     public int roll, pitch, yaw;
     public int acx, acy, acz;
     private IntPtr handle;
 
-    public void attach()
+    public int attach()
     {
         HIDapi.hid_init();
         IntPtr ptr = HIDapi.hid_enumerate(0x057e, 0x0);
         if (ptr == IntPtr.Zero)
         {
-            throw new Exception("No Joy-Cons found.");
+            HIDapi.hid_free_enumeration(ptr);
+            Debug.Log("No Joy-Cons found.");
+            return -1;
         }
         hid_device_info enumerate = (hid_device_info)Marshal.PtrToStructure(ptr, typeof(hid_device_info));
         if (enumerate.product_id == 0x2006)
@@ -36,10 +39,14 @@ public class Joycon {
         }
         else
         {
-            throw new Exception("No Joy-Cons found.");
+            HIDapi.hid_free_enumeration(ptr);
+            Debug.Log("No Joy-Cons found.");
+            return -1;
         }
         handle = HIDapi.hid_open_path(enumerate.path);
         HIDapi.hid_free_enumeration(ptr);
+        alive = true;
+        return 0;
     }
     public void init(byte leds)
     {

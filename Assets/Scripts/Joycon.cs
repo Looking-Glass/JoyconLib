@@ -10,7 +10,7 @@ public class Joycon {
 
     private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
     private byte global_count = 0;
-    public bool isleft;
+    public bool isleft; 
     public int roll, pitch, yaw;
     public int acx, acy, acz;
     private IntPtr handle;

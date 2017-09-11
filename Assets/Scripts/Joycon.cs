@@ -8,31 +8,47 @@ using UnityEngine;
 
 public class Joycon {
 
-    private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
-    private byte global_count = 0;
     public bool isleft;
-    public bool alive=false;
+    public bool alive = false;
     public int roll, pitch, yaw;
     public int acx, acy, acz;
+
     private IntPtr handle;
+	private const ushort vendor_id = 0x57e;
+	private const ushort product_l = 0x2006;
+	private const ushort product_r = 0x2007;
+	private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
+	private byte global_count = 0;
 
     public int attach()
     {
         HIDapi.hid_init();
-        IntPtr ptr = HIDapi.hid_enumerate(0x057e, 0x0);
+        IntPtr ptr = HIDapi.hid_enumerate(vendor_id, 0x0);
         if (ptr == IntPtr.Zero)
         {
             HIDapi.hid_free_enumeration(ptr);
             Debug.Log("No Joy-Cons found.");
             return -1;
         }
+
         hid_device_info enumerate = (hid_device_info)Marshal.PtrToStructure(ptr, typeof(hid_device_info));
-        if (enumerate.product_id == 0x2006)
+
+//		hid_device_info top=enumerate;
+//		while (true) {
+//			Debug.Log (top.vendor_id + " " + top.product_id);
+//			if (top.next != IntPtr.Zero) {
+//				top = (hid_device_info)Marshal.PtrToStructure (top.next, typeof(hid_device_info));
+//			} else {
+//				break;
+//			}
+//		}
+
+		if (enumerate.product_id == product_l)
         {
             isleft = true;
             Debug.Log("Left Joy-Con connected.");
         }
-        else if (enumerate.product_id == 0x2007)
+        else if (enumerate.product_id == product_r)
         {
             Debug.Log("Right Joy-Con connected.");
             isleft = false;

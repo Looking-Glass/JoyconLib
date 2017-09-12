@@ -19,7 +19,7 @@ public class Input : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-        if (j.alive) { j.poll(); };
+       if (j.alive) { j.poll(); };
     }
     // FixedUpdate is called before physics are applied each frame
     private void FixedUpdate()

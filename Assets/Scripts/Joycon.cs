@@ -26,8 +26,8 @@ public class Joycon {
 	private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
     private byte[] stick_raw = { 0, 0, 0 };
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
-
     private byte global_count = 0;
+    private const uint report_len = 65;
 
     public int attach()
     {
@@ -62,19 +62,20 @@ public class Joycon {
             return -1;
         }
         handle = HIDapi.hid_open_path(enumerate.path);
+        HIDapi.hid_set_nonblocking(handle, 1);
         HIDapi.hid_free_enumeration(ptr);
+        
         alive = true;
         return 0;
     }
     public void init(byte leds)
     {
-        byte[] a = { 0x1 };
-        // Enable rumble
-        subcommand(0x48, a, 1);
-        // Enable IMU
-        subcommand(0x40, a, 1);
+        byte[] a = {0x0};
         // Input report mode
         subcommand(0x3, new byte[] {0x3f}, 1);
+        a[0] = 0x1;
+        subcommand(0x48, a, 1);
+        subcommand(0x40, a, 1);
         dump_calibration_data();
         // Connect
         a[0] = 0x01;
@@ -84,18 +85,19 @@ public class Joycon {
         a[0] = 0x03;
         subcommand(0x1, a, 1);
         a[0] = leds;
-        for (int i = 0; i < 5; ++i)
-        {
-            subcommand(0x30, a, 1);
-        }
-        // Input report mode
-        subcommand(0x3, new byte[] { 0x30 }, 1);
+        printarray(subcommand(0x30, a, 1),report_len);
     }
     public void poll()
     {
-        byte[] buf = new byte[65];
-        HIDapi.hid_read_timeout(handle, buf, new UIntPtr(64), 200);
-        if (buf[0] == 0x30)
+        byte[] buf = new byte[report_len];
+        HIDapi.hid_read_timeout(handle, buf, new UIntPtr(40), 50);
+        
+        if (buf[0] != 0x30)
+        {
+            Debug.Log("Changing input mode to 0x30. If this happens more than once something is wrong.");
+            subcommand(0x3, new byte[] { 0x30 }, 1);
+        }
+        else
         {
             roll = buf[13] | ((buf[14] << 8) & 0xff00);
             pitch = buf[15] | ((buf[16] << 8) & 0xff00);
@@ -113,19 +115,27 @@ public class Joycon {
             //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
         }
     }
-    private void subcommand(byte subcommand, byte[] buf, uint len, bool print = true)
+    private byte[] subcommand(byte subcommand, byte[] buf, uint len, bool print = true)
     {
-        byte[] buf_ = new byte[65];
+        byte[] buf_ = new byte[report_len];
+        byte[] response = new byte[report_len];
         Array.Copy(default_buf, buf_, 10);
         Array.Copy(buf, 0, buf_, 11, len);
         buf_[10] = subcommand;
         buf_[1] = global_count;
         ++global_count;
         if (global_count >= 0xf) global_count -= 0xf;
+
 #if DEBUG
         if (print) { printarray(buf_, len + 11); };
 #endif
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
+        int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 100);
+        if (res == 0)
+        {
+            Debug.Log("READ FAILED");
+        }
+        return response;
     }
     private void dump_calibration_data()
     {
@@ -162,8 +172,7 @@ public class Joycon {
         byte[] buf_ = new byte[len+20];
 
         for (int i = 0; i < 100; ++i){
-            subcommand(0x10, buf, 5, false);
-            HIDapi.hid_read(handle, buf_, new UIntPtr(len+20));
+            buf_ = subcommand(0x10, buf, 5, false);
             if (buf_[15] == addr2 && buf_[16] == addr1)
             {
                 break;

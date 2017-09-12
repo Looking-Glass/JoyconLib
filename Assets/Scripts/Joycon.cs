@@ -13,7 +13,7 @@ public class Joycon {
     public int roll, pitch, yaw;
     public int acx, acy, acz;
     public byte[] buttons = { 0x00, 0x00 };
-    public UInt16[] stick = { 0, 0 };
+    public Int16[] stick = { 0, 0 };
 
     private IntPtr handle;
 
@@ -26,8 +26,9 @@ public class Joycon {
 	private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
     private byte[] stick_raw = { 0, 0, 0 };
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
+    private UInt16[] stick_precal = { 0, 0 };
     private byte global_count = 0;
-    private const uint report_len = 65;
+    private const uint report_len = 48;
 
     public int attach()
     {
@@ -85,12 +86,12 @@ public class Joycon {
         a[0] = 0x03;
         subcommand(0x1, a, 1);
         a[0] = leds;
-        printarray(subcommand(0x30, a, 1),report_len);
+        printarray(subcommand(0x30, a, 1), report_len);
     }
     public void poll()
     {
         byte[] buf = new byte[report_len];
-        HIDapi.hid_read_timeout(handle, buf, new UIntPtr(40), 50);
+        HIDapi.hid_read_timeout(handle, buf, new UIntPtr(report_len), 50);
         
         if (buf[0] != 0x30)
         {
@@ -107,14 +108,35 @@ public class Joycon {
             acz = buf[23] | ((buf[24] << 8) & 0xff00);
             buttons[0] = buf[2 + (isleft ? 2 : 0)];
             buttons[1] = buf[3];
-            stick_raw[0] = buf[5 + (isleft ? 0 : 3)];
-            stick_raw[1] = buf[6 + (isleft ? 0 : 3)];
-            stick_raw[2] = buf[7 + (isleft ? 0 : 3)];
-            stick[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
-            stick[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
+            stick_raw[0] = buf[6 + (isleft ? 0 : 3)];
+            stick_raw[1] = buf[7 + (isleft ? 0 : 3)];
+            stick_raw[2] = buf[8 + (isleft ? 0 : 3)];
+            stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
+            stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
+            stick = center_sticks(stick_precal);
+            Debug.Log(stick[0] + " " + stick[1]);
             //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
         }
     }
+
+    private Int16[] center_sticks(UInt16[] vals)
+    {
+        Int16[] s = { 0, 0 };
+
+        for (uint i = 0; i < 2; ++i)
+        {
+            if (vals[i] > stick_cal[2 + i])
+            {
+                s[i] = (Int16)((vals[i] - stick_cal[2 + i]) * -1.0f / stick_cal[i]*32768);
+            }
+            else
+            {
+                s[i] = (Int16)((vals[i] - stick_cal[2 + i]) * 1.0f / stick_cal[4 + i]*32768);
+            }
+        }
+        return s;
+    }
+
     private byte[] subcommand(byte subcommand, byte[] buf, uint len, bool print = true)
     {
         byte[] buf_ = new byte[report_len];
@@ -197,7 +219,7 @@ public class Joycon {
         string tostr = "";
         for (int i = 0; i<len; ++i)
         {
-            tostr += string.Format("{0:X3} ", arr[i]);
+            tostr += string.Format("{0:D} ",arr[i]);
         }
         Debug.Log(tostr);
     }

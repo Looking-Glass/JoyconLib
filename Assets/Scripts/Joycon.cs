@@ -33,16 +33,16 @@ public class Joycon
     private const byte RANGE_G = 8;
     private Int16[] acc_r = { 0, 0, 0 };
     private float[] acc_f = { 0, 0, 0 };
-    private Int16[] acc_z = { 0, 0, 0 };
+    private float[] acc_g = { 0, 0, 0 };
+    private float[] acc_z = { 0, 0, 0 };
 
     private Int16[] gyr = { 0, 0, 0 };
     public double[] euler = { 0, 0, 0 };
-    private const double alpha = 0.5;
+    private const float alpha = 0.5f;
 
     private byte global_count = 0;
+    private uint attempts = 0;
     private const uint report_len = 48;
-
-
 
     public int attach()
     {
@@ -85,11 +85,11 @@ public class Joycon
     }
     public void log_to_file(string s, bool preserve = true)
     {
-        //using (System.IO.StreamWriter file =
-        //new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", preserve))
-        //{
-        //    file.WriteLine(s);
-        //}
+        using (System.IO.StreamWriter file =
+        new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", preserve))
+        {
+            file.WriteLine(s);
+        }
     }
     public void init(byte leds)
     {
@@ -120,8 +120,11 @@ public class Joycon
         {
             Debug.Log("Changing input mode to 0x30. If this happens more than once something is wrong.");
             subcommand(0x3, new byte[] { 0x30 }, 1);
+            ++attempts;
+            if (attempts > 30) alive = false;
             return;
         }
+        attempts = 0;
 
         stick_raw[0] = buf[6 + (isleft ? 0 : 3)];
         stick_raw[1] = buf[7 + (isleft ? 0 : 3)];
@@ -151,23 +154,25 @@ public class Joycon
         buttons[1] = buf[4];
 
         for (int i = 0; i < 3; ++i)
-            acc_f[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
-
+        {
+            acc_g[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
+            acc_f[i] = (acc_g[i]-acc_z[i]) * alpha + (acc_f[i] * (1f - alpha));
+        }
+            
        // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
-       // log_to_file(acc_f[0] + " " + acc_f[1] + " " + acc_f[2]);
+        //log_to_file(acc_g[0] + " " + acc_g[1] + " " + acc_g[2]);
 
         //https://theccontinuum.com/2012/09/24/arduino-imu-pitch-roll-from-accelerometer/
         euler[0] = (Math.Atan2(-acc_f[1], acc_f[2]) * 180f) / Math.PI;
         euler[1] = (Math.Atan2(acc_f[0], Math.Sqrt(acc_f[1] * acc_f[1] + acc_f[2] * acc_f[2])) * 180f) / Math.PI;
-
         //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
     }
     
     public void set_zero_accel()
     {
-        acc_z[0] = acc_r[0];
-        acc_z[1] = acc_r[1];
-        acc_z[2] = acc_r[2];
+        acc_z[0] = acc_g[0];
+        acc_z[1] = acc_g[1];
+        acc_z[2] = acc_g[2];
     }
 
     private Int16[] center_sticks(UInt16[] vals)

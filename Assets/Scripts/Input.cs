@@ -14,6 +14,9 @@ public class Input : MonoBehaviour {
         if (j.attach() != -1) {
             j.init(0x0);
         }
+        for (int i = 0; i < 2; ++i) {
+            j.poll();
+        }
         j.log_to_file("New run", false);
     }
 
@@ -26,7 +29,7 @@ public class Input : MonoBehaviour {
         {
             j.set_zero_accel();
         }
-        tr.eulerAngles = new Vector3((float)(j.euler[0]), (float)(j.euler[1]), 0);
+        tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(j.euler[1]));
     }
     // FixedUpdate is called before physics are applied each frame
     private void FixedUpdate()

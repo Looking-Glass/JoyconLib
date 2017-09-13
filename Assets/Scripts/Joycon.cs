@@ -30,9 +30,10 @@ public class Joycon
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
     private UInt16[] stick_precal = { 0, 0 };
 
-    private UInt16[] acc = { 0, 0, 0 };
-    private double[] acc_f = { 0, 0, 0 };
-    private UInt16[] acc_g = { 0, 0, 0 };
+    private const byte RANGE_G = 8;
+    private Int16[] acc_r = { 0, 0, 0 };
+    private float[] acc_f = { 0, 0, 0 };
+    private Int16[] acc_z = { 0, 0, 0 };
 
     private Int16[] gyr = { 0, 0, 0 };
     public double[] euler = { 0, 0, 0 };
@@ -82,6 +83,14 @@ public class Joycon
         alive = true;
         return 0;
     }
+    public void log_to_file(string s, bool preserve = true)
+    {
+        //using (System.IO.StreamWriter file =
+        //new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", preserve))
+        //{
+        //    file.WriteLine(s);
+        //}
+    }
     public void init(byte leds)
     {
         byte[] a = { 0x0 };
@@ -114,18 +123,6 @@ public class Joycon
             return;
         }
 
-        gyr[0] = (Int16)(buf[13] | ((buf[14] << 8) & 0xff00));
-        gyr[1] = (Int16)(buf[15] | ((buf[16] << 8) & 0xff00));
-        gyr[2] = (Int16)(buf[17] | ((buf[18] << 8) & 0xff00));
-
-        acc[0] = (UInt16)((int)(buf[19] | ((buf[20] << 8) & 0xff00))+32767);
-        acc[1] = (UInt16)((int)(buf[21] | ((buf[22] << 8) & 0xff00))+32767);
-        acc[2] = (UInt16)((int)(buf[23] | ((buf[24] << 8) & 0xff00))+32767);
-        Debug.Log(acc[0]);
-
-        buttons[0] = buf[3 + (isleft ? 2 : 0)];
-        buttons[1] = buf[4];
-
         stick_raw[0] = buf[6 + (isleft ? 0 : 3)];
         stick_raw[1] = buf[7 + (isleft ? 0 : 3)];
         stick_raw[2] = buf[8 + (isleft ? 0 : 3)];
@@ -134,21 +131,43 @@ public class Joycon
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = center_sticks(stick_precal);
 
+        // read raw IMU values
+        gyr[0] = (Int16)(buf[19] | ((buf[20] << 8) & 0xff00));
+        gyr[1] = (Int16)(buf[21] | ((buf[22] << 8) & 0xff00));
+        gyr[2] = (Int16)(buf[23] | ((buf[24] << 8) & 0xff00));
+        uint n = 0;
+        acc_r[0] = (Int16)(buf[13+n] | ((buf[14+n] << 8) & 0xff00));
+        acc_r[1] = (Int16)(buf[15+n] | ((buf[16+n] << 8) & 0xff00));
+        acc_r[2] = (Int16)(buf[17+n] | ((buf[18+n] << 8) & 0xff00));
+
+        // accelerometer ranging data:
+        // +/- 2g : 0.061 mg/LSB
+        // +/- 4g : 0.122 mg/LSB
+        // +/- 6g : 0.244 mg/LSB
+        // +/- 8g : 0.488 mg/LSB
+        // assume +/- 2g for now
+
+        buttons[0] = buf[3 + (isleft ? 2 : 0)];
+        buttons[1] = buf[4];
+
         for (int i = 0; i < 3; ++i)
-            acc_f[i] = (acc[i]) / 32768.0 * alpha + (acc_f[i] * (1.0f - alpha));
+            acc_f[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
+
+       // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
+       // log_to_file(acc_f[0] + " " + acc_f[1] + " " + acc_f[2]);
 
         //https://theccontinuum.com/2012/09/24/arduino-imu-pitch-roll-from-accelerometer/
-        euler[0] = (Math.Atan2(-acc_f[1], acc_f[2]) * 180.0) / Math.PI;
-        euler[1] = (Math.Atan2(acc_f[0], Math.Sqrt(acc_f[1] * acc_f[1] + acc_f[2] * acc_f[2])) * 180.0) / Math.PI;
+        euler[0] = (Math.Atan2(-acc_f[1], acc_f[2]) * 180f) / Math.PI;
+        euler[1] = (Math.Atan2(acc_f[0], Math.Sqrt(acc_f[1] * acc_f[1] + acc_f[2] * acc_f[2])) * 180f) / Math.PI;
 
         //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
     }
     
     public void set_zero_accel()
     {
-        acc_g[0] = acc[0];
-        acc_g[1] = acc[1];
-        acc_g[2] = acc[2];
+        acc_z[0] = acc_r[0];
+        acc_z[1] = acc_r[1];
+        acc_z[2] = acc_r[2];
     }
 
     private Int16[] center_sticks(UInt16[] vals)

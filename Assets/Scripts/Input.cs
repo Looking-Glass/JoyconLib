@@ -14,9 +14,10 @@ public class Input : MonoBehaviour {
         if (j.attach() != -1) {
             j.init(0x0);
         }
-        j.poll();
-        j.set_zero_accel();
+        j.log_to_file("New run", false);
     }
+
+ 
 
     // Update is called once per frame
     void Update() {

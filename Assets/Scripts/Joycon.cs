@@ -9,7 +9,8 @@ using UnityEngine;
 public class Joycon
 {
     public bool isleft;
-    public enum state_ : uint {
+    public enum state_ : uint
+    {
         NOT_ATTACHED,
         DROPPED,
         NO_JOYCONS,
@@ -17,24 +18,27 @@ public class Joycon
         INPUT_MODE_0x30,
         IMU_DATA_OK,
     };
-    public struct buttons_
-    {
-        public bool DPAD_DOWN;
-        public bool DPAD_RIGHT;
-        public bool DPAD_LEFT;
-        public bool DPAD_UP;
-        public bool SL;
-        public bool SR;
-        public bool MINUS;
-        public bool HOME;
-        public bool PLUS;
-        public bool CAPTURE;
-        public bool STICK;
-        public bool SHOULDER_1;
-        public bool SHOULDER_2;
-    };
-    public buttons_ buttons;
     public state_ state;
+
+    public enum Button : int
+    {
+        DPAD_DOWN = 0,
+        DPAD_RIGHT = 1,
+        DPAD_LEFT = 2,
+        DPAD_UP = 3,
+        SL = 4,
+        SR = 5,
+        MINUS = 6,
+        HOME = 7,
+        PLUS = 8,
+        CAPTURE = 9,
+        STICK = 10,
+        SHOULDER_1 = 11,
+        SHOULDER_2 = 12
+    };
+
+    public bool[] pressed = new bool[13];
+    public bool[] down = new bool[13];
 
     public Int16[] stick = { 0, 0 };
 
@@ -135,7 +139,6 @@ public class Joycon
         a[0] = leds;
         subcommand(0x30, a, 1);
     }
-
     public uint poll()
     {
         if (state < state_.INPUT_MODE_0x30)
@@ -202,21 +205,31 @@ public class Joycon
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = center_sticks(stick_precal);
 
-        buttons.DPAD_DOWN = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
-        buttons.DPAD_RIGHT= (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
-        buttons.DPAD_UP = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
-        buttons.DPAD_LEFT = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
-        buttons.HOME = ((report_buf[4] & 0x10) != 0);
-        buttons.MINUS = ((report_buf[4] & 0x01) != 0);
-        buttons.PLUS = ((report_buf[4] & 0x02) != 0);
-        buttons.STICK = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
-        buttons.SHOULDER_2 = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
-        buttons.SHOULDER_1 = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
-        buttons.SHOULDER_2 = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
-        buttons.SR = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
-        buttons.SL = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+        for (int i = 0; i < down.Length; ++i)
+        {
+            pressed[i] = down[i];
+        }
 
-        if (!imu_enabled | state < state_.IMU_DATA_OK) return -1;
+        down[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
+        down[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
+        down[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
+        down[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
+        down[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
+        down[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
+        down[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
+        down[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
+        down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+        down[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
+        down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+        down[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
+        down[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+
+        for (int i = 0; i < down.Length; ++i) { 
+            pressed[i] = !pressed[i] & down[i];
+        }
+
+        if (!imu_enabled | state < state_.IMU_DATA_OK)
+            return -1;
         // read raw IMU values
         uint n = 0;
 
@@ -256,13 +269,6 @@ public class Joycon
         //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
         return 0;
     }
-    public void set_zero_accel()
-    {
-        acc_z[0] = acc_g[0];
-        acc_z[1] = acc_g[1];
-        acc_z[2] = acc_g[2];
-    }
-
     private Int16[] center_sticks(UInt16[] vals)
     {
         Int16[] s = { 0, 0 };
@@ -280,7 +286,6 @@ public class Joycon
         }
         return s;
     }
-
     private byte[] subcommand(byte sc, byte[] buf, uint len, bool print = false)
     {
         byte[] buf_ = new byte[report_len];

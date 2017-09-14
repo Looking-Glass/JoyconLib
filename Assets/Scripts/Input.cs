@@ -20,13 +20,9 @@ public class Input : MonoBehaviour {
     void Update() {
         if (j.state > Joycon.state_.DROPPED) {
             j.poll();
-           
+            j.update();
+            tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(-j.euler[1]));
+            if (j.pressed[(int)Joycon.Button.DPAD_DOWN]) Debug.Log("HI");
         }
-    }
-    // FixedUpdate is called before physics are applied each frame
-    void FixedUpdate()
-    {
-        j.update();
-        tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(-j.euler[1]));
     }
 }

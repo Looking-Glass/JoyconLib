@@ -66,15 +66,16 @@ public class Joycon
     private bool imu_enabled = false;
     private Int16[] gyr = { 0, 0, 0 };
     public double[] euler = { 0, 0, 0 };
-    private float alpha;
+    private float filter_alpha;
 
     private const uint report_len = 49;
     private byte[] report_buf;
     private byte global_count = 0;
     private uint attempts = 0;
 
-    public int attach(byte leds = 0x0, bool imu=true, float alpha = 0f)
+    public int attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
     {
+        filter_alpha = alpha;
         state = state_.NOT_ATTACHED;
         report_buf = new byte[report_len];
         HIDapi.hid_init();
@@ -90,7 +91,6 @@ public class Joycon
                 return -1;
             }
         }
-
         hid_device_info enumerate = (hid_device_info)Marshal.PtrToStructure(ptr, typeof(hid_device_info));
         if (enumerate.product_id == product_l)
         {
@@ -251,7 +251,7 @@ public class Joycon
         for (int i = 0; i < 3; ++i)
         {
             acc_g[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
-            acc_f[i] = (acc_g[i] - acc_z[i]) * alpha + (acc_f[i] * (1f - alpha));
+            acc_f[i] = (acc_g[i] - acc_z[i]) * filter_alpha + (acc_f[i] * (1f - filter_alpha));
         }
 
         // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);

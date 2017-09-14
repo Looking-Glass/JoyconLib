@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-public class Input : MonoBehaviour {
+public class JoyconInput : MonoBehaviour {
 
     private Transform tr;
     Joycon j;

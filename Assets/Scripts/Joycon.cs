@@ -66,14 +66,14 @@ public class Joycon
     private bool imu_enabled = false;
     private Int16[] gyr = { 0, 0, 0 };
     public double[] euler = { 0, 0, 0 };
-    private const float alpha = 1f;
+    private float alpha;
 
     private const uint report_len = 49;
     private byte[] report_buf;
     private byte global_count = 0;
     private uint attempts = 0;
 
-    public int attach()
+    public int attach(byte leds = 0x0, bool imu=true, float alpha = 0f)
     {
         state = state_.NOT_ATTACHED;
         report_buf = new byte[report_len];
@@ -112,18 +112,6 @@ public class Joycon
         HIDapi.hid_set_nonblocking(handle, 1);
         HIDapi.hid_free_enumeration(ptr);
         state = state_.ATTACHED;
-        return 0;
-    }
-    public void log_to_file(string s, bool append = true)
-    {
-        using (System.IO.StreamWriter file =
-        new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", append))
-        {
-            file.WriteLine(s);
-        }
-    }
-    public void init(byte leds)
-    {
         byte[] a = { 0x0 };
         // Input report mode
         subcommand(0x3, new byte[] { 0x3f }, 1, false);
@@ -138,6 +126,16 @@ public class Joycon
         subcommand(0x1, a, 1);
         a[0] = leds;
         subcommand(0x30, a, 1);
+        imu_enabled = imu;
+        return 0;
+    }
+    public void log_to_file(string s, bool append = true)
+    {
+        using (System.IO.StreamWriter file =
+        new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", append))
+        {
+            file.WriteLine(s);
+        }
     }
     public uint poll()
     {
@@ -188,10 +186,6 @@ public class Joycon
             Debug.Log("IMU data received.");
         }
         return attempts;
-    }
-    public void enable_imu(bool a)
-    {
-        imu_enabled = a;
     }
     public int update()
     {

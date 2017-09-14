@@ -11,9 +11,7 @@ public class Input : MonoBehaviour {
     void Start() {
         j = new Joycon();
         tr = GetComponent<Transform>();
-        j.attach();
-        j.enable_imu(true);
-        j.init(0);
+        j.attach(alpha:0.05f,leds:0x0,imu:true);
     }
 
     // Update is called once per frame

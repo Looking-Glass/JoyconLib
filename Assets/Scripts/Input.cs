@@ -29,11 +29,11 @@ public class Input : MonoBehaviour {
         {
             j.set_zero_accel();
         }
-        tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(j.euler[1]));
     }
     // FixedUpdate is called before physics are applied each frame
-    private void FixedUpdate()
+    void FixedUpdate()
     {
-
+        j.update();
+        tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(-j.euler[1]));
     }
 }

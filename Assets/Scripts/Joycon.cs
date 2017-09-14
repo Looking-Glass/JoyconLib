@@ -38,14 +38,16 @@ public class Joycon
 
     private Int16[] gyr = { 0, 0, 0 };
     public double[] euler = { 0, 0, 0 };
-    private const float alpha = 0.5f;
+    private const float alpha = 1f;
 
+    private const uint report_len = 48;
+    private byte[] report_buf;
     private byte global_count = 0;
     private uint attempts = 0;
-    private const uint report_len = 48;
 
     public int attach()
     {
+        report_buf = new byte[report_len];
         HIDapi.hid_init();
         IntPtr ptr = HIDapi.hid_enumerate(vendor_id, 0x0);
         if (ptr == IntPtr.Zero)
@@ -85,11 +87,11 @@ public class Joycon
     }
     public void log_to_file(string s, bool preserve = true)
     {
-        using (System.IO.StreamWriter file =
-        new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", preserve))
-        {
-            file.WriteLine(s);
-        }
+        //using (System.IO.StreamWriter file =
+        //new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", preserve))
+        //{
+        //    file.WriteLine(s);
+        //}
     }
     public void init(byte leds)
     {
@@ -108,40 +110,53 @@ public class Joycon
         a[0] = 0x03;
         subcommand(0x1, a, 1);
         a[0] = leds;
-        printarray(subcommand(0x30, a, 1), report_len);
+        subcommand(0x30, a, 1);
     }
 
-    public void poll()
+    public int poll()
     {
-        byte[] buf = new byte[report_len];
-        HIDapi.hid_read_timeout(handle, buf, new UIntPtr(report_len), 50);
-
-        if (buf[0] != 0x30)
+        HIDapi.hid_read_timeout(handle, report_buf, new UIntPtr(report_len), 50);
+        if (report_buf[0] != 0x30) // wrong input report mode
         {
-            Debug.Log("Changing input mode to 0x30. If this happens more than once something is wrong.");
-            subcommand(0x3, new byte[] { 0x30 }, 1);
             ++attempts;
-            if (attempts > 30) alive = false;
-            return;
+            Debug.Log(string.Format("No accel data received. Attempt:{0:D} Packet ID:{1:X}", attempts, report_buf[0]));
+            if (attempts < 5) return 0;
+            Debug.Log("5 input reports not received. Changing input mode to 0x30");
+            subcommand(0x3, new byte[] { 0x30 }, 1);
+            if (attempts < 30) return 0;
+            alive = false;
+            Debug.Log("Connection lost. Is the Joy-Con connected?");
+            return -1;
         }
         attempts = 0;
-
-        stick_raw[0] = buf[6 + (isleft ? 0 : 3)];
-        stick_raw[1] = buf[7 + (isleft ? 0 : 3)];
-        stick_raw[2] = buf[8 + (isleft ? 0 : 3)];
+        return 1;
+    }
+    
+    public int update()
+    {
+        if (report_buf[0] == 0x00) return -1;
+        stick_raw[0] = report_buf[6 + (isleft ? 0 : 3)];
+        stick_raw[1] = report_buf[7 + (isleft ? 0 : 3)];
+        stick_raw[2] = report_buf[8 + (isleft ? 0 : 3)];
 
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = center_sticks(stick_precal);
 
         // read raw IMU values
-        gyr[0] = (Int16)(buf[19] | ((buf[20] << 8) & 0xff00));
-        gyr[1] = (Int16)(buf[21] | ((buf[22] << 8) & 0xff00));
-        gyr[2] = (Int16)(buf[23] | ((buf[24] << 8) & 0xff00));
+        gyr[0] = (Int16)(report_buf[19] | ((report_buf[20] << 8) & 0xff00));
+        gyr[1] = (Int16)(report_buf[21] | ((report_buf[22] << 8) & 0xff00));
+        gyr[2] = (Int16)(report_buf[23] | ((report_buf[24] << 8) & 0xff00));
         uint n = 0;
-        acc_r[0] = (Int16)(buf[13+n] | ((buf[14+n] << 8) & 0xff00));
-        acc_r[1] = (Int16)(buf[15+n] | ((buf[16+n] << 8) & 0xff00));
-        acc_r[2] = (Int16)(buf[17+n] | ((buf[18+n] << 8) & 0xff00));
+        acc_r[0] = (Int16)(report_buf[13 + n] | ((report_buf[14 + n] << 8) & 0xff00));
+        acc_r[1] = (Int16)(report_buf[15 + n] | ((report_buf[16 + n] << 8) & 0xff00));
+        acc_r[2] = (Int16)(report_buf[17 + n] | ((report_buf[18 + n] << 8) & 0xff00));
+
+        stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
+        stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
+        stick = center_sticks(stick_precal);
+
+        if (report_buf[0] != 0x30) return -1; // no gyro data
 
         // accelerometer ranging data:
         // +/- 2g : 0.061 mg/LSB
@@ -150,24 +165,23 @@ public class Joycon
         // +/- 8g : 0.488 mg/LSB
         // assume +/- 2g for now
 
-        buttons[0] = buf[3 + (isleft ? 2 : 0)];
-        buttons[1] = buf[4];
-
         for (int i = 0; i < 3; ++i)
         {
             acc_g[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
-            acc_f[i] = (acc_g[i]-acc_z[i]) * alpha + (acc_f[i] * (1f - alpha));
+            acc_f[i] = (acc_g[i] - acc_z[i]) * alpha + (acc_f[i] * (1f - alpha));
         }
-            
-       // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
+
+        // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
         //log_to_file(acc_g[0] + " " + acc_g[1] + " " + acc_g[2]);
 
         //https://theccontinuum.com/2012/09/24/arduino-imu-pitch-roll-from-accelerometer/
         euler[0] = (Math.Atan2(-acc_f[1], acc_f[2]) * 180f) / Math.PI;
         euler[1] = (Math.Atan2(acc_f[0], Math.Sqrt(acc_f[1] * acc_f[1] + acc_f[2] * acc_f[2])) * 180f) / Math.PI;
         //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
+
+        return 0;
     }
-    
+
     public void set_zero_accel()
     {
         acc_z[0] = acc_g[0];
@@ -209,7 +223,7 @@ public class Joycon
 #endif
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
         int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 100);
-        if (res == 0)
+        if (res < 1)
         {
             Debug.Log("READ FAILED");
         }

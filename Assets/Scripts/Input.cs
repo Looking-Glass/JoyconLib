@@ -11,23 +11,16 @@ public class Input : MonoBehaviour {
     void Start() {
         j = new Joycon();
         tr = GetComponent<Transform>();
-        if (j.attach() != -1) {
-            j.init(0x0);
-        }
-        for (int i = 0; i < 2; ++i) {
-            j.poll();
-        }
-        j.log_to_file("New run", false);
+        j.attach();
+        j.enable_imu(true);
+        j.init(0);
     }
-
- 
 
     // Update is called once per frame
     void Update() {
-       if (j.alive) { j.poll(); };
-        if ((j.buttons[0] & 0x80) != 0)
-        {
-            j.set_zero_accel();
+        if (j.state > Joycon.state_.DROPPED) {
+            j.poll();
+           
         }
     }
     // FixedUpdate is called before physics are applied each frame

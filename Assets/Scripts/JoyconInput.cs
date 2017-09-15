@@ -16,7 +16,7 @@ public class JoyconInput : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-        if (j.state > Joycon.state_.DROPPED) {
+        if (j.state > Joycon.state_.NO_JOYCONS) {
             j.poll();
             j.update();
             tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(-j.euler[1]));

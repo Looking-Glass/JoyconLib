@@ -69,7 +69,7 @@ public class Joycon
     private float filter_alpha;
 
     private const uint report_len = 49;
-    private byte[] report_buf;
+    private byte[] report_buf = new byte[report_len];
     private byte global_count = 0;
     private uint attempts = 0;
 
@@ -77,7 +77,6 @@ public class Joycon
     {
         filter_alpha = alpha;
         state = state_.NOT_ATTACHED;
-        report_buf = new byte[report_len];
         HIDapi.hid_init();
         IntPtr ptr = HIDapi.hid_enumerate(vendor_id, 0x0);
         if (ptr == IntPtr.Zero)
@@ -127,6 +126,8 @@ public class Joycon
         a[0] = leds;
         subcommand(0x30, a, 1);
         imu_enabled = imu;
+        Debug.Log("Done with init.");
+
         return 0;
     }
     public void log_to_file(string s, bool append = true)
@@ -164,7 +165,8 @@ public class Joycon
         }
         attempts = 0;
         int i = 0;
-        if (!imu_enabled) {
+        if (!imu_enabled)
+        {
             state = state_.INPUT_MODE_0x30;
             return attempts;
         }
@@ -177,7 +179,7 @@ public class Joycon
         {
             state = state_.INPUT_MODE_0x30;
             Debug.Log("Report ID 0x30 received, but no IMU data. Enabling IMU.");
-            subcommand(0x40, new byte[] {0x1}, 1, true);
+            subcommand(0x40, new byte[] { 0x1 }, 1, true);
             return attempts;
         }
         if (state != state_.IMU_DATA_OK)

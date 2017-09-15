@@ -57,14 +57,17 @@ public class Joycon
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
     private UInt16[] stick_precal = { 0, 0 };
 
-    private const byte RANGE_G = 8;
+    private const byte ACCEL_RANGE_G = 8;
     private Int16[] acc_r = { 0, 0, 0 };
     private float[] acc_f = { 0, 0, 0 };
     private float[] acc_g = { 0, 0, 0 };
     private float[] acc_z = { 0, 0, 0 };
 
     private bool imu_enabled = false;
-    private Int16[] gyr = { 0, 0, 0 };
+    private Int16[] gyr_r = { 0, 0, 0 };
+    private float[] gyr_g = { 0, 0, 0 };
+    private int GYRO_RANGE_G = 2000;
+    private int GYRO_RANGE_DIV;
     public double[] euler = { 0, 0, 0 };
     private float filter_alpha;
 
@@ -72,6 +75,11 @@ public class Joycon
     private byte[] report_buf = new byte[report_len];
     private byte global_count = 0;
     private uint attempts = 0;
+
+    public Joycon()
+    {
+        GYRO_RANGE_DIV = (GYRO_RANGE_G == 245) ? (2) : (GYRO_RANGE_G / 125);
+    }
 
     public int Attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
     {
@@ -126,17 +134,19 @@ public class Joycon
         a[0] = leds;
         Subcommand(0x30, a, 1);
         imu_enabled = imu;
+        Subcommand(0x40, new byte[] { 0x1 }, 1, true);
         Debug.Log("Done with init.");
-
         return 0;
     }
     public void Detach()
     {
+        PrintArray(max, format: "max {0:S}");
         Subcommand(0x30, new byte[] { 0x0 }, 1);
         Subcommand(0x40, new byte[] { 0x0 }, 1);
         Subcommand(0x3, new byte[] { 0x3f }, 1);
         HIDapi.hid_close(handle);
     }
+    float[] max = { 0, 0, 0 };
     public uint Poll()
     {
         if (state < state_.INPUT_MODE_0x30)
@@ -228,9 +238,9 @@ public class Joycon
         // read raw IMU values
         uint n = 0;
 
-        gyr[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
-        gyr[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
-        gyr[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+        gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+        gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
+        gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
 
         acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
         acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
@@ -247,9 +257,16 @@ public class Joycon
 
         for (int i = 0; i < 3; ++i)
         {
-            acc_g[i] = acc_r[i] * 0.061f * (RANGE_G >> 1) / 1000f;
+            acc_g[i] = acc_r[i] * 0.061f * (ACCEL_RANGE_G >> 1) / 1000f;
             acc_f[i] = (acc_g[i] - acc_z[i]) * filter_alpha + (acc_f[i] * (1f - filter_alpha));
+            gyr_g[i] = gyr_r[i] * 4.375f * GYRO_RANGE_DIV / 1000f;
+            if (Math.Abs(gyr_g[i]) > Math.Abs(max[i]))
+            {
+                max[i] = gyr_g[i];
+            }
         }
+
+        PrintArray(gyr_g, format: "Gyro data : {0:S}");
 
         // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
         //log_to_file(acc_g[0] + " " + acc_g[1] + " " + acc_g[2]);

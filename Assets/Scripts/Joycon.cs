@@ -89,6 +89,10 @@ public class Joycon
     {
         return down[(int)key];
     }
+    public Int16[] GetStick()
+    {
+        return stick;
+    }
     public Vector3 GetEulerAngles()
     {
         return new Vector3(-euler[1], -euler[0], -euler[2]);

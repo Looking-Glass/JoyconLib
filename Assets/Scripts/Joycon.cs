@@ -81,7 +81,18 @@ public class Joycon
     {
         GYRO_RANGE_DIV = (GYRO_RANGE_G == 245) ? (2) : (GYRO_RANGE_G / 125);
     }
-
+    public bool GetKeyPressed(Button key)
+    {
+        return pressed[(int)key];
+    }
+    public bool GetKeyDown(Button key)
+    {
+        return down[(int)key];
+    }
+    public Vector3 GetEulerAngles()
+    {
+        return new Vector3(-euler[1], -euler[0], -euler[2]);
+    }
     public int Attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
     {
         filterweight = alpha;
@@ -141,13 +152,19 @@ public class Joycon
     }
     public void Detach()
     {
-		state = state_.NOT_ATTACHED;
         PrintArray(max, format: "max {0:S}");
 		Debug.Log ("Sum: " + sum);
-        Subcommand(0x30, new byte[] { 0x0 }, 1);
-        Subcommand(0x40, new byte[] { 0x0 }, 1);
-        Subcommand(0x3, new byte[] { 0x3f }, 1);
-        HIDapi.hid_close(handle);
+        if (state > state_.NO_JOYCONS)
+        {
+            Subcommand(0x30, new byte[] { 0x0 }, 1);
+            Subcommand(0x40, new byte[] { 0x0 }, 1);
+            Subcommand(0x3, new byte[] { 0x3f }, 1);
+        }
+        if (state > state_.DROPPED)
+        {
+            HIDapi.hid_close(handle);
+        }
+        state = state_.NOT_ATTACHED;
     }
     public uint Poll()
     {
@@ -202,8 +219,16 @@ public class Joycon
     }
 	float[] max = { 0, 0, 0 };
 	float sum = 0;
-    public int Update()
+    public void Update()
     {
+        if (state > state_.NO_JOYCONS)
+        {
+            Poll();
+            ProcessPacket();
+        }
+    }
+    private int ProcessPacket()
+    {   
         if (report_buf[0] == 0x00) return -1;
 
         stick_raw[0] = report_buf[6 + (isleft ? 0 : 3)];

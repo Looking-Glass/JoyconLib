@@ -73,7 +73,7 @@ public class Joycon
     private byte global_count = 0;
     private uint attempts = 0;
 
-    public int attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
+    public int Attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
     {
         filter_alpha = alpha;
         state = state_.NOT_ATTACHED;
@@ -113,36 +113,35 @@ public class Joycon
         state = state_.ATTACHED;
         byte[] a = { 0x0 };
         // Input report mode
-        subcommand(0x3, new byte[] { 0x3f }, 1, false);
+        Subcommand(0x3, new byte[] { 0x3f }, 1, false);
         a[0] = 0x1;
         dump_calibration_data();
         // Connect
         a[0] = 0x01;
-        subcommand(0x1, a, 1);
+        Subcommand(0x1, a, 1);
         a[0] = 0x02;
-        subcommand(0x1, a, 1);
+        Subcommand(0x1, a, 1);
         a[0] = 0x03;
-        subcommand(0x1, a, 1);
+        Subcommand(0x1, a, 1);
         a[0] = leds;
-        subcommand(0x30, a, 1);
+        Subcommand(0x30, a, 1);
         imu_enabled = imu;
         Debug.Log("Done with init.");
 
         return 0;
     }
-    public void log_to_file(string s, bool append = true)
+    public void Detach()
     {
-        using (System.IO.StreamWriter file =
-        new System.IO.StreamWriter(@"C:\Users\LKG\Desktop\data_dump.txt", append))
-        {
-            file.WriteLine(s);
-        }
+        Subcommand(0x30, new byte[] { 0x0 }, 1);
+        Subcommand(0x40, new byte[] { 0x0 }, 1);
+        Subcommand(0x3, new byte[] { 0x3f }, 1);
+        HIDapi.hid_close(handle);
     }
-    public uint poll()
+    public uint Poll()
     {
         if (state < state_.INPUT_MODE_0x30)
         {
-            report_buf = subcommand(0x1, new byte[] { 0x0 }, 0);
+            report_buf = Subcommand(0x1, new byte[] { 0x0 }, 0);
         }
         else
         {
@@ -156,7 +155,7 @@ public class Joycon
             if (change | state >= state_.INPUT_MODE_0x30) Debug.Log(string.Format("No IMU data received. Attempt: {0:D}, packet ID: 0x{1:X2}." + (change ? " Changing input mode to 0x30." : ""), attempts, report_buf[0]));
             if (!change) return attempts;
             state = state_.ATTACHED;
-            subcommand(0x3, new byte[] { 0x30 }, 1, true);
+            Subcommand(0x3, new byte[] { 0x30 }, 1, true);
             state = state_.INPUT_MODE_0x30;
             if (attempts < 30) return attempts;
             state = state_.DROPPED;
@@ -179,7 +178,7 @@ public class Joycon
         {
             state = state_.INPUT_MODE_0x30;
             Debug.Log("Report ID 0x30 received, but no IMU data. Enabling IMU.");
-            subcommand(0x40, new byte[] { 0x1 }, 1, true);
+            Subcommand(0x40, new byte[] { 0x1 }, 1, true);
             return attempts;
         }
         if (state != state_.IMU_DATA_OK)
@@ -189,7 +188,7 @@ public class Joycon
         }
         return attempts;
     }
-    public int update()
+    public int Update()
     {
         if (report_buf[0] == 0x00) return -1;
 
@@ -199,7 +198,7 @@ public class Joycon
 
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
-        stick = center_sticks(stick_precal);
+        stick = CenterSticks(stick_precal);
 
         for (int i = 0; i < down.Length; ++i)
         {
@@ -237,10 +236,6 @@ public class Joycon
         acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
         acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
-        stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
-        stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
-        stick = center_sticks(stick_precal);
-
         if (report_buf[0] != 0x30) return -1; // no gyro data
 
         // accelerometer ranging data:
@@ -265,7 +260,7 @@ public class Joycon
         //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
         return 0;
     }
-    private Int16[] center_sticks(UInt16[] vals)
+    private Int16[] CenterSticks(UInt16[] vals)
     {
         Int16[] s = { 0, 0 };
 
@@ -282,7 +277,7 @@ public class Joycon
         }
         return s;
     }
-    private byte[] subcommand(byte sc, byte[] buf, uint len, bool print = false)
+    private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = false)
     {
         byte[] buf_ = new byte[report_len];
         byte[] response = new byte[report_len];
@@ -293,19 +288,19 @@ public class Joycon
         ++global_count;
         if (global_count >= 0xf) global_count -= 0xf;
 #if DEBUG
-        if (print) { printarray(buf_, len, 11, "Subcommand 0x"+string.Format("{0:X2}",sc)+" sent. Data: 0x{0:S}"); };
+        if (print) { PrintArray(buf_, len, 11, "Subcommand 0x"+string.Format("{0:X2}",sc)+" sent. Data: 0x{0:S}"); };
 #endif
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
         int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 50);
 #if DEBUG
         if (res < 1) Debug.Log("No response.");
-        else if (print) { printarray(response, report_len-1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
+        else if (print) { PrintArray(response, report_len-1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
 #endif
         return response;
     }
     private void dump_calibration_data()
     {
-        byte[] buf_ = spi_read(0x80, (isleft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
+        byte[] buf_ = ReadSPI(0x80, (isleft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
         bool found = false;
         for (int i = 0; i < 9; ++i)
         {
@@ -319,7 +314,7 @@ public class Joycon
         if (!found)
         {
             Debug.Log("Using factory stick calibration data.");
-            buf_ = spi_read(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
+            buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
         }
         stick_cal[0] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]);
         stick_cal[1] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));
@@ -328,7 +323,7 @@ public class Joycon
         stick_cal[4] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]);
         stick_cal[5] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));
     }
-    private byte[] spi_read(byte addr1, byte addr2, uint len, bool print=false)
+    private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print=false)
     {
         byte[] buf = { addr2, addr1, 0x00, 0x00, (byte)len };
         byte[] ret = new byte[len];
@@ -336,7 +331,7 @@ public class Joycon
 
         for (int i = 0; i < 100; ++i)
         {
-            buf_ = subcommand(0x10, buf, 5, false);
+            buf_ = Subcommand(0x10, buf, 5, false);
             if (buf_[15] == addr2 && buf_[16] == addr1)
             {
                 break;
@@ -344,11 +339,11 @@ public class Joycon
         }
         Array.Copy(buf_, 20, ret, 0, len);
 #if DEBUG
-        if (print) printarray(ret, len);
+        if (print) PrintArray(ret, len);
 #endif
         return ret;
     }
-    private void printarray<T>(T[] arr, uint len=0, uint start = 0, string format = "{0:S}")
+    private void PrintArray<T>(T[] arr, uint len=0, uint start = 0, string format = "{0:S}")
     {
         if (len == 0) len = (uint)arr.Length;
         string tostr = "";
@@ -357,14 +352,5 @@ public class Joycon
             tostr += string.Format((arr[0] is byte) ? "{0:X2} " : ((arr[0] is float) ? "{0:F} " : "{0:D} "), arr[i + start]);
         }
         Debug.Log(string.Format(format, tostr));
-    }
-    private void printarray(UInt16[] arr, uint len)
-    {
-        string tostr = "";
-        for (int i = 0; i < len; ++i)
-        {
-            tostr += string.Format("{0:D} ", arr[i]);
-        }
-        Debug.Log(tostr);
     }
 }

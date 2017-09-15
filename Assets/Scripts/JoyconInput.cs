@@ -10,17 +10,23 @@ public class JoyconInput : MonoBehaviour {
     // Use this for initialization
     void Start() {
         j = new Joycon();
+        QualitySettings.vSyncCount = 0;
         tr = GetComponent<Transform>();
-        j.attach(alpha:0.05f,leds:0x0,imu:true);
+        j.Attach(alpha:0.05f,leds:0x0,imu:true);
     }
 
     // Update is called once per frame
     void Update() {
         if (j.state > Joycon.state_.NO_JOYCONS) {
-            j.poll();
-            j.update();
+            j.Poll();
+            j.Update();
             tr.eulerAngles = new Vector3((float)(j.euler[0]), 0, (float)(-j.euler[1]));
             if (j.pressed[(int)Joycon.Button.DPAD_DOWN]) Debug.Log("HI");
         }
+    }
+
+    void OnApplicationQuit()
+    {
+        j.Detach();
     }
 }

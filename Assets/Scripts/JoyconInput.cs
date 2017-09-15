@@ -12,7 +12,7 @@ public class JoyconInput : MonoBehaviour {
         j = new Joycon();
         QualitySettings.vSyncCount = 0;
         tr = GetComponent<Transform>();
-        j.Attach(alpha:.05f,leds:0x0,imu:true);
+        j.Attach(alpha:.1f,leds:0x0,imu:true);
     }
 
     // Update is called once per frame
@@ -22,12 +22,12 @@ public class JoyconInput : MonoBehaviour {
             j.Update();
             tr.eulerAngles = new Vector3(-j.euler[1], -j.euler[0], -j.euler[2]);
             //tr.position = new Vector3(j.pos[0], j.pos[1], j.pos[2]);
-            if (j.pressed[(int)Joycon.Button.SHOULDER_2]) j.recenter();
+            if (j.pressed[(int)Joycon.Button.SHOULDER_2]) j.Recenter();
         }
     }
 
     void OnApplicationQuit()
     {
-        j.Detach();
+		if (j.state > Joycon.state_.NO_JOYCONS) j.Detach();
     }
 }

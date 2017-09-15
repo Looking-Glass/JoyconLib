@@ -141,13 +141,14 @@ public class Joycon
     }
     public void Detach()
     {
+		state = state_.NOT_ATTACHED;
         PrintArray(max, format: "max {0:S}");
+		Debug.Log ("Sum: " + sum);
         Subcommand(0x30, new byte[] { 0x0 }, 1);
         Subcommand(0x40, new byte[] { 0x0 }, 1);
         Subcommand(0x3, new byte[] { 0x3f }, 1);
         HIDapi.hid_close(handle);
     }
-    float[] max = { 0, 0, 0 };
     public uint Poll()
     {
         if (state < state_.INPUT_MODE_0x30)
@@ -199,6 +200,8 @@ public class Joycon
         }
         return attempts;
     }
+	float[] max = { 0, 0, 0 };
+	float sum = 0;
     public int Update()
     {
         if (report_buf[0] == 0x00) return -1;
@@ -256,13 +259,16 @@ public class Joycon
         // +/- 4g : 0.122 mg/LSB
         // +/- 6g : 0.244 mg/LSB
         // +/- 8g : 0.488 mg/LSB
-        // assume +/- 2g for now
+        // +/- 8g is likely correct
 
-        for (int i = 0; i < 3; ++i)
+		for (int i = 0; i < 3; ++i)
         {
+			gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i>0) ? -1 : 1));
             acc_g[i] = acc_r[i] * 0.061f * (ACCEL_RANGE_G >> 1) / 1000f;
             gyr_g[i] = gyr_r[i] * 4.375f * GYRO_RANGE_DIV / 1000f;
-            gyr_a[i] = (gyr_a[i] + gyr_g[i]) / 2;   
+			gyr_a [i] = (gyr_a [i] + gyr_g [i]) / 2;
+			if (Math.Abs(acc_g [i]) > Math.Abs(max [i]))
+				max [i] = acc_g [i];
         }
         float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
         for (int i = 0; i < 3; ++i)
@@ -283,11 +289,12 @@ public class Joycon
             euler[0] = euler[0] + gyr_a[0] * Time.deltaTime;
             euler[1] = euler[1] + gyr_a[1] * Time.deltaTime;
             euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
+			sum += gyr_g [2] * Time.deltaTime;
             est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
             est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
             est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1]*est_g[1] - est_g[2]*est_g[2]));
-            for (int i = 0; i<2; ++i)
-                pos[i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
+			for (int i = 0; i < 2; ++i)
+				pos [i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
             float est_mag = (float)Math.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
             pos[0] /= est_mag;
             pos[1] /= est_mag;
@@ -295,14 +302,14 @@ public class Joycon
         }
         return 0;
     }
-    public void recenter()
+    public void Recenter()
     {
         euler[0] = 0;
-        euler[1] = 1;
-        euler[2] = 2;
+        euler[1] = 0;
+        euler[2] = 0;
         pos[0] = 0;
-        pos[1] = 1;
-        pos[2] = 2;
+        pos[1] = 0;
+        pos[2] = 0;
     }
     private Int16[] CenterSticks(UInt16[] vals)
     {

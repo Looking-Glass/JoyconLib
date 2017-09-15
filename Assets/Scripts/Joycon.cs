@@ -57,19 +57,20 @@ public class Joycon
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
     private UInt16[] stick_precal = { 0, 0 };
 
-    private const byte ACCEL_RANGE_G = 8;
-    private Int16[] acc_r = { 0, 0, 0 };
-    private float[] acc_f = { 0, 0, 0 };
-    private float[] acc_g = { 0, 0, 0 };
-    private float[] acc_z = { 0, 0, 0 };
-
     private bool imu_enabled = false;
-    private Int16[] gyr_r = { 0, 0, 0 };
-    private float[] gyr_g = { 0, 0, 0 };
     private int GYRO_RANGE_G = 2000;
     private int GYRO_RANGE_DIV;
-    public double[] euler = { 0, 0, 0 };
-    private float filter_alpha;
+    private const byte ACCEL_RANGE_G = 8;
+    private Int16[] acc_r = { 0, 0, 0 };
+    private float[] acc_g = { 0, 0, 0 };
+    private Int16[] gyr_r = { 0, 0, 0 };
+    private float[] gyr_g = { 0, 0, 0 };
+    private float[] gyr_a = { 0, 0, 0 };
+
+    private float[] est_g = { 0, 0, 0 };
+    public float[] pos = { 0, 0, 0 };
+    public float[] euler = { 0, 0, 0 };
+    private float filterweight;
 
     private const uint report_len = 49;
     private byte[] report_buf = new byte[report_len];
@@ -83,7 +84,7 @@ public class Joycon
 
     public int Attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
     {
-        filter_alpha = alpha;
+        filterweight = alpha;
         state = state_.NOT_ATTACHED;
         HIDapi.hid_init();
         IntPtr ptr = HIDapi.hid_enumerate(vendor_id, 0x0);
@@ -246,6 +247,8 @@ public class Joycon
         acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
         acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
+        // http://www.starlino.com/imu_guide.html
+
         if (report_buf[0] != 0x30) return -1; // no gyro data
 
         // accelerometer ranging data:
@@ -258,24 +261,48 @@ public class Joycon
         for (int i = 0; i < 3; ++i)
         {
             acc_g[i] = acc_r[i] * 0.061f * (ACCEL_RANGE_G >> 1) / 1000f;
-            acc_f[i] = (acc_g[i] - acc_z[i]) * filter_alpha + (acc_f[i] * (1f - filter_alpha));
             gyr_g[i] = gyr_r[i] * 4.375f * GYRO_RANGE_DIV / 1000f;
-            if (Math.Abs(gyr_g[i]) > Math.Abs(max[i]))
-            {
-                max[i] = gyr_g[i];
-            }
+            gyr_a[i] = (gyr_a[i] + gyr_g[i]) / 2;   
         }
-
-        PrintArray(gyr_g, format: "Gyro data : {0:S}");
-
-        // log_to_file(acc_r[0] + "," + acc_r[1] + "," + acc_r[2]);
-        //log_to_file(acc_g[0] + " " + acc_g[1] + " " + acc_g[2]);
-
-        //https://theccontinuum.com/2012/09/24/arduino-imu-pitch-roll-from-accelerometer/
-        euler[0] = (Math.Atan2(-acc_f[1], acc_f[2]) * 180f) / Math.PI;
-        euler[1] = (Math.Atan2(acc_f[0], Math.Sqrt(acc_f[1] * acc_f[1] + acc_f[2] * acc_f[2])) * 180f) / Math.PI;
-        //http://www.instructables.com/id/Accelerometer-Gyro-Tutorial/
+        float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
+        for (int i = 0; i < 3; ++i)
+        {
+            acc_g[i] = acc_g[i] / acc_mag;
+        }
+        if (pos[0] == 0 & pos[1] == 0 & pos[2] == 0)
+        {
+            pos[0] = acc_g[0];
+            pos[1] = acc_g[1];
+            pos[2] = acc_g[2];
+            euler[0] = (float)Math.Atan2(pos[1], pos[2]);
+            euler[1] = (float)Math.Atan2(pos[2], pos[0]);
+            euler[2] = (float)Math.Atan2(pos[0], pos[1]);
+        }
+        else
+        {
+            euler[0] = euler[0] + gyr_a[0] * Time.deltaTime;
+            euler[1] = euler[1] + gyr_a[1] * Time.deltaTime;
+            euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
+            est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
+            est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
+            est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1]*est_g[1] - est_g[2]*est_g[2]));
+            for (int i = 0; i<2; ++i)
+                pos[i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
+            float est_mag = (float)Math.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+            pos[0] /= est_mag;
+            pos[1] /= est_mag;
+            pos[2] /= est_mag;
+        }
         return 0;
+    }
+    public void recenter()
+    {
+        euler[0] = 0;
+        euler[1] = 1;
+        euler[2] = 2;
+        pos[0] = 0;
+        pos[1] = 1;
+        pos[2] = 2;
     }
     private Int16[] CenterSticks(UInt16[] vals)
     {

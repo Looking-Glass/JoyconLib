@@ -290,8 +290,8 @@ public class Joycon
         {
 			gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i>0) ? -1 : 1));
             acc_g[i] = acc_r[i] * 0.00025f;
-            gyr_g[i] = gyr_r[i] * (isleft ? 0.07f : 0.07344f);
-			gyr_a [i] = (gyr_a [i] + gyr_g [i]) / 2;
+            gyr_g[i] = gyr_r[i] * (isleft ? 0.061f : 0.07344f);
+            gyr_a[i] = (gyr_a [i] + gyr_g [i]) / 2;
             sum[i] += gyr_g[i] * Time.deltaTime;
             if (Math.Abs(acc_g [i]) > Math.Abs(max [i]))
 				max [i] = acc_g [i];

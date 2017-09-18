@@ -38,6 +38,7 @@ public class Joycon
     };
 
     public bool[] pressed = new bool[13];
+    public bool[] released = new bool[13];
     public bool[] down = new bool[13];
 
     public Int16[] stick = { 0, 0 };
@@ -87,6 +88,10 @@ public class Joycon
     {
         return down[(int)key];
     }
+    public bool GetKeyReleased(Button key)
+    {
+        return released[(int)key];
+    }
     public Int16[] GetStick()
     {
         return stick;
@@ -95,7 +100,7 @@ public class Joycon
     {
         return new Vector3(-euler[1], -euler[0], -euler[2]);
     }
-    public int Attach(byte leds = 0x0, bool imu=true, float alpha = 1f)
+    public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
     {
         filterweight = alpha;
         state = state_.NOT_ATTACHED;
@@ -177,13 +182,15 @@ public class Joycon
     }
     public uint Poll()
     {
+        bool recvd = false;
         while (true)
         {
             if (ReceiveRaw() > 0)
             {
+                recvd = true;
                 report_buf = raw_buf;
             }
-            else
+            else if (recvd)
             {
                 break;
             }
@@ -235,10 +242,11 @@ public class Joycon
         if (state > state_.NO_JOYCONS)
         {
             Poll();
+            ProcessPacket();
         }
     }
     private int ProcessPacket()
-    {   
+    {
         if (report_buf[0] == 0x00) return -1;
 
         stick_raw[0] = report_buf[6 + (isleft ? 0 : 3)];
@@ -268,7 +276,9 @@ public class Joycon
         down[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
         down[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
 
-        for (int i = 0; i < down.Length; ++i) { 
+        for (int i = 0; i < down.Length; ++i)
+        {
+            released[i] = pressed[i] & !down[i];
             pressed[i] = !pressed[i] & down[i];
         }
 
@@ -289,15 +299,15 @@ public class Joycon
 
         if (report_buf[0] != 0x30) return -1; // no gyro data
 
-		for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i)
         {
-			gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i>0) ? -1 : 1));
+            gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i > 0) ? -1 : 1));
             acc_g[i] = acc_r[i] * 0.00025f;
             gyr_g[i] = gyr_r[i] * (isleft ? 0.061f : 0.07344f);
-            gyr_a[i] = (gyr_a [i] + gyr_g [i]) / 2;
+            gyr_a[i] = (gyr_a[i] + gyr_g[i]) / 2;
             sum[i] += gyr_g[i] * Time.deltaTime;
-            if (Math.Abs(acc_g [i]) > Math.Abs(max [i]))
-				max [i] = acc_g [i];
+            if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
+                max[i] = acc_g[i];
         }
         float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
         for (int i = 0; i < 3; ++i)
@@ -320,9 +330,9 @@ public class Joycon
             euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
             est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
             est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
-            est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1]*est_g[1] - est_g[2]*est_g[2]));
-			for (int i = 0; i < 2; ++i)
-				pos [i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
+            est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1] * est_g[1] - est_g[2] * est_g[2]));
+            for (int i = 0; i < 2; ++i)
+                pos[i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
             float est_mag = (float)Math.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
             pos[0] /= est_mag;
             pos[1] /= est_mag;
@@ -367,13 +377,13 @@ public class Joycon
         ++global_count;
         if (global_count >= 0xf) global_count -= 0xf;
 #if DEBUG
-        if (print) { PrintArray(buf_, len, 11, "Subcommand 0x"+string.Format("{0:X2}",sc)+" sent. Data: 0x{0:S}"); };
+        if (print) { PrintArray(buf_, len, 11, "Subcommand 0x" + string.Format("{0:X2}", sc) + " sent. Data: 0x{0:S}"); };
 #endif
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
         int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 50);
 #if DEBUG
         if (res < 1) Debug.Log("No response.");
-        else if (print) { PrintArray(response, report_len-1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
+        else if (print) { PrintArray(response, report_len - 1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
 #endif
         return response;
     }
@@ -402,7 +412,7 @@ public class Joycon
         stick_cal[4] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]);
         stick_cal[5] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));
     }
-    private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print=false)
+    private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {
         byte[] buf = { addr2, addr1, 0x00, 0x00, (byte)len };
         byte[] read_buf = new byte[len];
@@ -422,7 +432,7 @@ public class Joycon
 #endif
         return read_buf;
     }
-    private void PrintArray<T>(T[] arr, uint len=0, uint start = 0, string format = "{0:S}")
+    private void PrintArray<T>(T[] arr, uint len = 0, uint start = 0, string format = "{0:S}")
     {
         if (len == 0) len = (uint)arr.Length;
         string tostr = "";

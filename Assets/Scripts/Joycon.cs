@@ -58,9 +58,6 @@ public class Joycon
     private UInt16[] stick_precal = { 0, 0 };
 
     private bool imu_enabled = false;
-    private int GYRO_RANGE_G = 2000;
-    private int GYRO_RANGE_DIV;
-    private const byte ACCEL_RANGE_G = 8;
     private Int16[] acc_r = { 0, 0, 0 };
     private float[] acc_g = { 0, 0, 0 };
     private Int16[] gyr_r = { 0, 0, 0 };
@@ -79,7 +76,6 @@ public class Joycon
 
     public Joycon()
     {
-        GYRO_RANGE_DIV = (GYRO_RANGE_G == 245) ? (2) : (GYRO_RANGE_G / 125);
     }
     public bool GetKeyPressed(Button key)
     {
@@ -157,7 +153,7 @@ public class Joycon
     public void Detach()
     {
         PrintArray(max, format: "max {0:S}");
-		Debug.Log ("Sum: " + sum);
+        PrintArray(sum, format: "Sum {0:S}");
         if (state > state_.NO_JOYCONS)
         {
             Subcommand(0x30, new byte[] { 0x0 }, 1);
@@ -222,7 +218,7 @@ public class Joycon
         return attempts;
     }
 	float[] max = { 0, 0, 0 };
-	float sum = 0;
+    float[] sum = { 0, 0, 0 };
     public void Update()
     {
         if (state > state_.NO_JOYCONS)
@@ -293,10 +289,11 @@ public class Joycon
 		for (int i = 0; i < 3; ++i)
         {
 			gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i>0) ? -1 : 1));
-            acc_g[i] = acc_r[i] * 0.061f * (ACCEL_RANGE_G >> 1) / 1000f;
-            gyr_g[i] = gyr_r[i] * 4.375f * GYRO_RANGE_DIV / 1000f;
+            acc_g[i] = acc_r[i] * 0.00025f;
+            gyr_g[i] = gyr_r[i] * (isleft ? 0.07f : 0.07344f);
 			gyr_a [i] = (gyr_a [i] + gyr_g [i]) / 2;
-			if (Math.Abs(acc_g [i]) > Math.Abs(max [i]))
+            sum[i] += gyr_g[i] * Time.deltaTime;
+            if (Math.Abs(acc_g [i]) > Math.Abs(max [i]))
 				max [i] = acc_g [i];
         }
         float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
@@ -318,7 +315,6 @@ public class Joycon
             euler[0] = euler[0] + gyr_a[0] * Time.deltaTime;
             euler[1] = euler[1] + gyr_a[1] * Time.deltaTime;
             euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
-			sum += gyr_g [2] * Time.deltaTime;
             est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
             est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
             est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1]*est_g[1] - est_g[2]*est_g[2]));

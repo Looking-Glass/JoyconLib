@@ -71,6 +71,8 @@ public class Joycon
 
     private const uint report_len = 49;
     private byte[] report_buf = new byte[report_len];
+    private byte[] raw_buf = new byte[report_len];
+    private int ret;
     private byte global_count = 0;
     private uint attempts = 0;
 
@@ -147,6 +149,7 @@ public class Joycon
         Subcommand(0x30, a, 1);
         imu_enabled = imu;
         Subcommand(0x40, new byte[] { 0x1 }, 1, true);
+        Subcommand(0x3, new byte[] { 0x30 }, 1, true);
         Debug.Log("Done with init.");
         return 0;
     }
@@ -166,17 +169,25 @@ public class Joycon
         }
         state = state_.NOT_ATTACHED;
     }
+    private int ReceiveRaw()
+    {
+        if (handle == IntPtr.Zero) return -2;
+        HIDapi.hid_set_nonblocking(handle, 1);
+        return HIDapi.hid_read(handle, raw_buf, new UIntPtr(report_len));
+    }
     public uint Poll()
     {
-        if (state < state_.INPUT_MODE_0x30)
+        while (true)
         {
-            report_buf = Subcommand(0x1, new byte[] { 0x0 }, 0);
+            if (ReceiveRaw() > 0)
+            {
+                report_buf = raw_buf;
+            }
+            else
+            {
+                break;
+            }
         }
-        else
-        {
-            HIDapi.hid_read(handle, report_buf, new UIntPtr(report_len));
-        }
-
         if (report_buf[0] != 0x30)
         {
             ++attempts;
@@ -217,14 +228,13 @@ public class Joycon
         }
         return attempts;
     }
-	float[] max = { 0, 0, 0 };
+    float[] max = { 0, 0, 0 };
     float[] sum = { 0, 0, 0 };
     public void Update()
     {
         if (state > state_.NO_JOYCONS)
         {
             Poll();
-            ProcessPacket();
         }
     }
     private int ProcessPacket()
@@ -278,13 +288,6 @@ public class Joycon
         // http://www.starlino.com/imu_guide.html
 
         if (report_buf[0] != 0x30) return -1; // no gyro data
-
-        // accelerometer ranging data:
-        // +/- 2g : 0.061 mg/LSB
-        // +/- 4g : 0.122 mg/LSB
-        // +/- 6g : 0.244 mg/LSB
-        // +/- 8g : 0.488 mg/LSB
-        // +/- 8g is likely correct
 
 		for (int i = 0; i < 3; ++i)
         {
@@ -402,7 +405,7 @@ public class Joycon
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print=false)
     {
         byte[] buf = { addr2, addr1, 0x00, 0x00, (byte)len };
-        byte[] ret = new byte[len];
+        byte[] read_buf = new byte[len];
         byte[] buf_ = new byte[len + 20];
 
         for (int i = 0; i < 100; ++i)
@@ -413,11 +416,11 @@ public class Joycon
                 break;
             }
         }
-        Array.Copy(buf_, 20, ret, 0, len);
+        Array.Copy(buf_, 20, read_buf, 0, len);
 #if DEBUG
-        if (print) PrintArray(ret, len);
+        if (print) PrintArray(read_buf, len);
 #endif
-        return ret;
+        return read_buf;
     }
     private void PrintArray<T>(T[] arr, uint len=0, uint start = 0, string format = "{0:S}")
     {

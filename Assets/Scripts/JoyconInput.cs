@@ -10,9 +10,9 @@ public class JoyconInput : MonoBehaviour {
     // Use this for initialization
     void Start() {
         j = new Joycon();
-        QualitySettings.vSyncCount = 0;
+        //QualitySettings.vSyncCount = 0;
         tr = GetComponent<Transform>();
-        j.Attach(alpha:.1f,leds:0xff,imu:true);
+        j.Attach(alpha:.1f,leds:0x0,imu:true);
     }
 
     // Update is called once per frame

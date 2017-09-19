@@ -38,9 +38,11 @@ public class Joycon
         SHOULDER_2 = 12
     };
 
-    public bool[] pressed = new bool[13];
-    public bool[] released = new bool[13];
-    public bool[] down = new bool[13];
+    private bool[] pressed = new bool[13];
+    private bool[] released = new bool[13];
+    private bool[] down = new bool[13];
+    private bool[] down_ = new bool[13];
+
 
     public Int16[] stick = { 0, 0 };
 
@@ -212,7 +214,7 @@ public class Joycon
                 attempts = 0;
                 recvd = true;
             }
-            else if (attempts > 100000)
+            else if (attempts > 1000)
             {
                 state = state_.DROPPED;
                 Debug.Log("Connection lost. Is the Joy-Con connected?");
@@ -264,7 +266,7 @@ public class Joycon
 
         for (int i = 0; i < down.Length; ++i)
         {
-            pressed[i] = down[i];
+            down_[i] = down[i];
         }
 
         down[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
@@ -283,8 +285,8 @@ public class Joycon
 
         for (int i = 0; i < down.Length; ++i)
         {
-            released[i] = pressed[i] & !down[i];
-            pressed[i] = !pressed[i] & down[i];
+            released[i] = (down_[i] & !down[i]);
+            pressed[i] = (!down_[i] & down[i]);
         }
         return 0;
     }

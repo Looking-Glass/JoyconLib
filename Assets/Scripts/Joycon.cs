@@ -72,8 +72,6 @@ public class Joycon
     private float filterweight;
 
     private const uint report_len = 49;
-    private byte[] report_buf = new byte[report_len];
-    private byte[] raw_buf = new byte[report_len];
 	private Queue<byte[]> reports = new Queue<byte[]>();
     private int ret;
     private byte global_count = 0;
@@ -183,10 +181,11 @@ public class Joycon
     {
         if (handle == IntPtr.Zero) return -2;
 		HIDapi.hid_set_nonblocking(handle, block ? 0 : 1);
+		byte[] raw_buf = new byte[report_len];
 		int ret = HIDapi.hid_read(handle, raw_buf, new UIntPtr (report_len));
 		if (ret > 0){
 			lock (reports) {
-				reports.Enqueue ((raw_buf.Clone() as byte[]));
+				reports.Enqueue (raw_buf);
 //				if (ts_en == raw_buf [1]) {
 //					Debug.Log (string.Format("Duplicate timestamp enqueued. TS: {0:X2}", ts_en));
 //				}
@@ -224,19 +223,120 @@ public class Joycon
     {
 		if (state > state_.NO_JOYCONS)
 		{
+			byte[] report_buf = new byte[report_len];
 			while (reports.Count > 0) {
 				
 				lock (reports) {
 					report_buf = reports.Dequeue ();
 				}
+				ProcessIMU (report_buf);
+
 //				if (ts_de == report_buf [1]) {
 //					Debug.Log (string.Format ("Duplicate timestamp dequeued. TS: {0:X2}", ts_de));
 //				}
 //				ts_de = report_buf [1];	
 //				Debug.Log (string.Format ("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:x2}", reports.Count, report_buf [0], report_buf [1]));
 			}
+			ProcessButtonsAndStick (report_buf);
 		}
     }
+	private int ProcessButtonsAndStick(byte[] report_buf){
+		if (report_buf[0] == 0x00) return -1;
+
+		stick_raw[0] = report_buf[6 + (isleft ? 0 : 3)];
+		stick_raw[1] = report_buf[7 + (isleft ? 0 : 3)];
+		stick_raw[2] = report_buf[8 + (isleft ? 0 : 3)];
+
+		stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
+		stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
+		stick = CenterSticks(stick_precal);
+
+		for (int i = 0; i < down.Length; ++i)
+		{
+			pressed[i] = down[i];
+		}
+
+		down[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
+		down[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
+		down[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
+		down[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
+		down[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
+		down[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
+		down[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
+		down[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
+		down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+		down[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
+		down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+		down[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
+		down[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+
+		for (int i = 0; i < down.Length; ++i)
+		{
+			released[i] = pressed[i] & !down[i];
+			pressed[i] = !pressed[i] & down[i];
+		}
+		return 0;
+	}
+	private int ProcessIMU(byte[] report_buf)
+	{
+		if (!imu_enabled | state < state_.IMU_DATA_OK)
+			return -1;
+		if (report_buf[0] != 0x30) return -1; // no gyro data
+		// read raw IMU values
+		uint n = 0;
+
+		gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+		gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
+		gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+
+		acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+		acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
+		acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+
+		// http://www.starlino.com/imu_guide.html
+
+
+		for (int i = 0; i < 3; ++i)
+		{
+			gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i > 0) ? -1 : 1));
+			acc_g[i] = acc_r[i] * 0.00025f;
+			gyr_g[i] = gyr_r[i] * (isleft ? 0.061f : 0.07344f);
+			gyr_a[i] = (gyr_a[i] + gyr_g[i]) / 2;
+			sum[i] += gyr_g[i] * Time.deltaTime;
+			if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
+				max[i] = acc_g[i];
+		}
+		float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
+		for (int i = 0; i < 3; ++i)
+		{
+			acc_g[i] = acc_g[i] / acc_mag;
+		}
+		if (pos[0] == 0 & pos[1] == 0 & pos[2] == 0)
+		{
+			pos[0] = acc_g[0];
+			pos[1] = acc_g[1];
+			pos[2] = acc_g[2];
+			euler[0] = (float)Math.Atan2(pos[1], pos[2]);
+			euler[1] = (float)Math.Atan2(pos[2], pos[0]);
+			euler[2] = (float)Math.Atan2(pos[0], pos[1]);
+		}
+		else
+		{
+			euler[0] = euler[0] + gyr_a[0] * Time.deltaTime;
+			euler[1] = euler[1] + gyr_a[1] * Time.deltaTime;
+			euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
+			est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
+			est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
+			est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1] * est_g[1] - est_g[2] * est_g[2]));
+			for (int i = 0; i < 2; ++i)
+				pos[i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
+			float est_mag = (float)Math.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+			pos[0] /= est_mag;
+			pos[1] /= est_mag;
+			pos[2] /= est_mag;
+		}
+		return 0;
+	}
 	public void Begin()
     {
 		PollThreadObj = new Thread (new ThreadStart (Poll));

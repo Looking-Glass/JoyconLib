@@ -17,7 +17,6 @@ public class JoyconDemo : MonoBehaviour {
         tr.eulerAngles = j.GetEulerAngles();
         if (j.GetKeyPressed(Joycon.Button.SHOULDER_2))
         {
-            Debug.Log("SDF");
             j.Recenter();
         }
     }

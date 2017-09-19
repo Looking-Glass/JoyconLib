@@ -61,16 +61,19 @@ public class Joycon
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
     private UInt16[] stick_precal = { 0, 0 };
 
+    private bool stop_polling = false;
+    private int timestamp;
+    private bool first_imu_packet = true;
     private bool imu_enabled = false;
     private Int16[] acc_r = { 0, 0, 0 };
-    private float[] acc_g = { 0, 0, 0 };
-    private Int16[] gyr_r = { 0, 0, 0 };
-    private float[] gyr_g = { 0, 0, 0 };
-    private float[] gyr_a = { 0, 0, 0 };
+    private Vector3 acc_g;
 
-    private float[] est_g = { 0, 0, 0 };
-    public float[] pos = { 0, 0, 0 };
-    public float[] euler = { 0, 0, 0 };
+    private Int16[] gyr_r = { 0, 0, 0 };
+    private Vector3 gyr_g;
+    private Vector3 gyr_est;
+
+    public Vector3 pos;
+    public Vector3 euler;
     private float filterweight;
 
     private const uint report_len = 49;
@@ -99,7 +102,11 @@ public class Joycon
     }
     public Vector3 GetEulerAngles(int x = 1, int y = 1, int z = 1)
     {
-        return new Vector3(x * -euler[1], y * -euler[0], z * -euler[2]);
+        return Vector3.Scale(pos, new Vector3(-x,-y,-z));
+    }
+    public Vector3 GetPosition()
+    {
+        return pos;
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
     {
@@ -162,7 +169,7 @@ public class Joycon
     }
     public void Detach()
     {
-        PollThreadObj.Abort();
+        stop_polling = true;
         PrintArray(max, format: "max {0:S}");
         PrintArray(sum, format: "Sum {0:S}");
         if (state > state_.NO_JOYCONS)
@@ -205,7 +212,7 @@ public class Joycon
     {
         bool recvd = false;
         int attempts = 0;
-        while (true)
+        while (!stop_polling)
         {
             int a = ReceiveRaw(recvd);
             if (a > 0)
@@ -226,6 +233,7 @@ public class Joycon
             }
             ++attempts;
         }
+        Debug.Log("End poll loop.");
     }
     float[] max = { 0, 0, 0 };
     float[] sum = { 0, 0, 0 };
@@ -249,6 +257,7 @@ public class Joycon
                 //				ts_de = report_buf [1];	
                 //				Debug.Log (string.Format ("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:x2}", reports.Count, report_buf [0], report_buf [1]));
             }
+
             ProcessButtonsAndStick(report_buf);
         }
     }
@@ -292,62 +301,65 @@ public class Joycon
     }
     private int ProcessIMU(byte[] report_buf)
     {
+
         if (!imu_enabled | state < state_.IMU_DATA_OK)
             return -1;
+
         if (report_buf[0] != 0x30) return -1; // no gyro data
                                               // read raw IMU values
-        uint n = 0;
+        int dt = (report_buf[1] - timestamp);
+        if (report_buf[1] < timestamp) dt += 0x100;
 
-        gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
-        gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
-        gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
-
-        acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
-        acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
-        acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
-
-        // http://www.starlino.com/imu_guide.html
-
-
-        for (int i = 0; i < 3; ++i)
+        for (int n = 0; n < 3; ++n)
         {
-            gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i > 0) ? -1 : 1));
-            acc_g[i] = acc_r[i] * 0.00025f;
-            gyr_g[i] = gyr_r[i] * (isleft ? 0.061f : 0.07344f);
-            gyr_a[i] = (gyr_a[i] + gyr_g[i]) / 2;
-            sum[i] += gyr_g[i] * Time.deltaTime;
-            if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
-                max[i] = acc_g[i];
+            gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+            gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
+            gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+
+            acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+            acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
+            acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+
+            for (int i = 0; i < 3; ++i)
+            {
+                gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i > 0) ? -1 : 1));
+                acc_g[i] = acc_r[i] * 0.00025f;
+                gyr_g[i] = gyr_r[i] * (isleft ? 0.061f : 0.07344f);
+                if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
+                    max[i] = acc_g[i];
+            }
+            acc_g = acc_g.normalized;
+            if (first_imu_packet)
+            {
+                pos = acc_g;
+                first_imu_packet = false;
+            }
+            else
+            {
+                for (int i = 0; i < 3; ++i) sum[i] += gyr_g[i] * (0.005f * dt);
+                if (Math.Abs(pos[2]) < 0.1f)
+                {
+                    gyr_est = pos;
+                }
+                else
+                {
+                    euler[0] = Mathf.Atan2(pos[1], pos[2]) + gyr_g[0] * (0.005f * dt);
+                    euler[1] = Mathf.Atan2(pos[0], pos[2]) + gyr_g[1] * (0.005f * dt);
+                    //euler[2] = Mathf.Atan2(pos[0], pos[0]) + gyr_g[1] * (0.005f * dt);
+                }
+                int sign = (Math.Cos(euler[0]) >= 0) ? 1 : -1;
+                for (int i = 0; i < 1; ++i)
+                {
+                    gyr_est[i] = Mathf.Sin(euler[i] * Mathf.PI / 180);
+                    gyr_est[i] /= Mathf.Sqrt(1 + Mathf.Pow((Mathf.Cos(euler[i] * Mathf.PI / 180)), 2) * Mathf.Pow(Mathf.Tan(euler[1 - i] * Mathf.PI / 180), 2));
+                }
+                gyr_est[2] = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est[0], 2) - Mathf.Pow(gyr_est[1], 2));
+            }
+            pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
+            pos = pos.normalized;
+            dt = 1;
         }
-        float acc_mag = (float)Math.Sqrt(acc_g[0] * acc_g[0] + acc_g[1] * acc_g[1] + acc_g[2] * acc_g[2]);
-        for (int i = 0; i < 3; ++i)
-        {
-            acc_g[i] = acc_g[i] / acc_mag;
-        }
-        if (pos[0] == 0 & pos[1] == 0 & pos[2] == 0)
-        {
-            pos[0] = acc_g[0];
-            pos[1] = acc_g[1];
-            pos[2] = acc_g[2];
-            euler[0] = (float)Math.Atan2(pos[1], pos[2]);
-            euler[1] = (float)Math.Atan2(pos[2], pos[0]);
-            euler[2] = (float)Math.Atan2(pos[0], pos[1]);
-        }
-        else
-        {
-            euler[0] = euler[0] + gyr_a[0] * Time.deltaTime;
-            euler[1] = euler[1] + gyr_a[1] * Time.deltaTime;
-            euler[2] = euler[2] + gyr_a[2] * Time.deltaTime;
-            est_g[0] = (float)(Math.Sin(euler[1]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[1]), 2) * Math.Pow(Math.Tan(euler[0]), 2)));
-            est_g[1] = (float)(Math.Sin(euler[0]) / Math.Sqrt(1 + Math.Pow(Math.Cos(euler[0]), 2) * Math.Pow(Math.Tan(euler[1]), 2)));
-            est_g[2] = (float)(Math.Sign(est_g[2]) * Math.Sqrt(1 - est_g[1] * est_g[1] - est_g[2] * est_g[2]));
-            for (int i = 0; i < 2; ++i)
-                pos[i] = (acc_g[i] + est_g[i] * filterweight) / (1 + filterweight);
-            float est_mag = (float)Math.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-            pos[0] /= est_mag;
-            pos[1] /= est_mag;
-            pos[2] /= est_mag;
-        }
+        timestamp = report_buf[1] + 2;
         return 0;
     }
     public void Begin()

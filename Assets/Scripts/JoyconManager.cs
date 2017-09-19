@@ -25,7 +25,8 @@ public class JoyconManager: MonoBehaviour
     void Start()
     {
         j = new Joycon();
-        j.Attach(alpha: .1f, leds: 0x0, imu: true);
+        j.Attach(alpha: .1f, leds: 0xf, imu: true);
+		j.Begin ();
     }
 
     // Update is called once per frame

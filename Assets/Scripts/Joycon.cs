@@ -80,6 +80,7 @@ public class Joycon
     private Queue<byte[]> reports = new Queue<byte[]>();
     private int ret;
     private byte global_count = 0;
+    private string debug_str;
 
     public Joycon()
     {
@@ -99,10 +100,6 @@ public class Joycon
     public Int16[] GetStick()
     {
         return stick;
-    }
-    public Vector3 GetEulerAngles(int x = 1, int y = 1, int z = 1)
-    {
-        return Vector3.Scale(pos, new Vector3(-x,-y,-z));
     }
     public Vector3 GetPosition()
     {
@@ -166,6 +163,11 @@ public class Joycon
 
         Debug.Log("Done with init.");
         return 0;
+    }
+    public string GetDebugText()
+    {
+        if (!down[(int)Button.DPAD_DOWN]) debug_str = "x:" + pos[0] + "\ny:" + pos[1] + "\nz:" + pos[2] + "\n";
+        return debug_str;
     }
     public void Detach()
     {
@@ -250,7 +252,6 @@ public class Joycon
                     report_buf = reports.Dequeue();
                 }
                 ProcessIMU(report_buf);
-
                 //				if (ts_de == report_buf [1]) {
                 //					Debug.Log (string.Format ("Duplicate timestamp dequeued. TS: {0:X2}", ts_de));
                 //				}
@@ -343,8 +344,8 @@ public class Joycon
                 }
                 else
                 {
-                    euler[0] = Mathf.Atan2(pos[1], pos[2]) + gyr_g[0] * (0.005f * dt);
-                    euler[1] = Mathf.Atan2(pos[0], pos[2]) + gyr_g[1] * (0.005f * dt);
+                    euler[0] = Mathf.Atan2(pos[0], pos[2]) + gyr_g[0] * (0.005f * dt);
+                    euler[1] = Mathf.Atan2(pos[1], pos[2]) + gyr_g[1] * (0.005f * dt);
                     //euler[2] = Mathf.Atan2(pos[0], pos[0]) + gyr_g[1] * (0.005f * dt);
                 }
                 int sign = (Math.Cos(euler[0]) >= 0) ? 1 : -1;
@@ -469,4 +470,6 @@ public class Joycon
         }
         Debug.Log(string.Format(format, tostr));
     }
+
+    
 }

@@ -4,37 +4,49 @@ using UnityEngine;
 
 public class JoyconDemo : MonoBehaviour {
     private Joycon j;
-    private Transform tr;
+    private LineRenderer lr;
+    private Transform line, sphere;
     // Use this for initialization
     void Start ()
     {
         j = JoyconManager.Instance.j;
-        tr = GetComponent<Transform>();
+        line = gameObject.transform.GetChild(0);
+        sphere = gameObject.transform.GetChild(1);
+        lr = line.GetComponent<LineRenderer>();
+        float alpha = 1.0f;
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(Color.blue, 0.0f), new GradientColorKey(Color.red, 1.0f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(alpha, 0.0f), new GradientAlphaKey(alpha, 1.0f) }
+            );
+        lr.colorGradient = gradient;
+        lr.positionCount = 2;
     }
 
     // Update is called once per frame
     void Update () {
-        if (j.GetKeyPressed(Joycon.Button.SHOULDER_2))
+
+        if (j != null && j.state > Joycon.state_.ATTACHED)
         {
-            j.Recenter();
+            Vector3 p = j.GetVector();
+            Vector3 endpt = new Vector3(-p[1], p[0], -p[2]);
+            if (j.GetKeyPressed(Joycon.Button.SHOULDER_2))
+            {
+                j.Recenter();
+            }
+            lr.SetPosition(0, -2f * endpt);
+            lr.SetPosition(1, 2f * endpt);
+            sphere.position = 2f * endpt;
         }
+        
     }
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.green;
-        if (j != null)
-        {
-            Vector3 p = j.GetPosition();
-
-            Gizmos.DrawLine(Vector3.zero, new Vector3(p[2], p[0], p[1]));
-            tr.position = j.GetPosition();
-
-        }
     }
 
     void OnGUI()
     {
-        GUI.Label(new Rect(0, 0, 200, 100),j.GetDebugText());
+        if (j != null) { GUI.Label(new Rect(0, 0, 200, 100), j.GetDebugText()); };
     }
 }

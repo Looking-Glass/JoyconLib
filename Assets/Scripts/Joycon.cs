@@ -101,7 +101,7 @@ public class Joycon
     {
         return stick;
     }
-    public Vector3 GetPosition()
+    public Vector3 GetVector()
     {
         return pos;
     }
@@ -168,6 +168,10 @@ public class Joycon
     {
         if (!down[(int)Button.DPAD_DOWN]) debug_str = "x:" + pos[0] + "\ny:" + pos[1] + "\nz:" + pos[2] + "\n";
         return debug_str;
+    }
+    public void SetFilterCoeff(float a)
+    {
+        filterweight = a;
     }
     public void Detach()
     {

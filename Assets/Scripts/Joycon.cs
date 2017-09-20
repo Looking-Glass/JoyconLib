@@ -56,6 +56,7 @@ public class Joycon
 
     private byte[] stick_raw = { 0, 0, 0 };
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
+    private UInt16 deadzone;
     private UInt16[] stick_precal = { 0, 0 };
 
     private bool imu_enabled = false;
@@ -355,7 +356,9 @@ public class Joycon
 
         for (uint i = 0; i < 2; ++i)
         {
-            if (vals[i] > stick_cal[2 + i])
+            if (vals[i] < deadzone)
+                vals[i] = 0;
+            else if (vals[i] > stick_cal[2 + i])
             {
                 s[i] = (Int16)((vals[i] - stick_cal[2 + i]) * -1.0f / stick_cal[i] * 32768);
             }
@@ -410,7 +413,10 @@ public class Joycon
         stick_cal[2] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
         stick_cal[3] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));
         stick_cal[4] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]);
-        stick_cal[5] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));
+        stick_cal[5] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));   
+
+        buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
+        deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
     }
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {

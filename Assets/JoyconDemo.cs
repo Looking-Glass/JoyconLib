@@ -30,7 +30,7 @@ public class JoyconDemo : MonoBehaviour {
         {
             Vector3 p = j.GetVector();
             Vector3 endpt = new Vector3(-p[1], p[0], -p[2]);
-            if (j.GetKeyPressed(Joycon.Button.SHOULDER_2))
+            if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {
                 j.Recenter();
             }

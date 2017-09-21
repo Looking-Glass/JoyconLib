@@ -37,9 +37,9 @@ public class Joycon
         SHOULDER_2 = 12
     };
 
-    public bool[] pressed = new bool[13];
-    public bool[] released = new bool[13];
-    public bool[] down = new bool[13];
+    public bool[] buttons_down = new bool[13];
+    public bool[] buttons_up = new bool[13];
+    public bool[] buttons = new bool[13];
 
     public Int16[] stick = { 0, 0 };
 
@@ -81,17 +81,17 @@ public class Joycon
     public Joycon()
     {
     }
-    public bool GetKeyPressed(Button key)
+    public bool GetButtonDown(Button b)
     {
-        return pressed[(int)key];
+        return buttons_down[(int)b];
     }
-    public bool GetKeyDown(Button key)
+    public bool GetButton(Button b)
     {
-        return down[(int)key];
+        return buttons[(int)b];
     }
-    public bool GetKeyReleased(Button key)
+    public bool GetButtonUp(Button b)
     {
-        return released[(int)key];
+        return buttons_up[(int)b];
     }
     public Int16[] GetStick()
     {
@@ -258,29 +258,29 @@ public class Joycon
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = CenterSticks(stick_precal);
 
-        for (int i = 0; i < down.Length; ++i)
+        for (int i = 0; i < buttons.Length; ++i)
         {
-            pressed[i] = down[i];
+            buttons_down[i] = buttons[i];
         }
 
-        down[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
-        down[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
-        down[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
-        down[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
-        down[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
-        down[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
-        down[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
-        down[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
-        down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
-        down[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
-        down[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
-        down[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
-        down[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+        buttons[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
+        buttons[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
+        buttons[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
+        buttons[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
+        buttons[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
+        buttons[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
+        buttons[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
+        buttons[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
+        buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+        buttons[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
+        buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+        buttons[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
+        buttons[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
 
-        for (int i = 0; i < down.Length; ++i)
+        for (int i = 0; i < buttons.Length; ++i)
         {
-            released[i] = pressed[i] & !down[i];
-            pressed[i] = !pressed[i] & down[i];
+            buttons_up[i] = buttons_down[i] & !buttons[i];
+            buttons_down[i] = !buttons_down[i] & buttons[i];
         }
 
         if (!imu_enabled | state < state_.IMU_DATA_OK)

@@ -15,9 +15,8 @@ public class JoyconDemo : MonoBehaviour {
     // Update is called once per frame
     void Update () {
         tr.eulerAngles = j.GetEulerAngles();
-        if (j.GetKeyPressed(Joycon.Button.SHOULDER_2))
+        if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
         {
-            Debug.Log("SDF");
             j.Recenter();
         }
     }

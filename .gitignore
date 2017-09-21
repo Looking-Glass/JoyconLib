@@ -4,6 +4,8 @@
 /[Bb]uild/
 /[Bb]uilds/
 
+*.meta
+
 /Assets/AssetStoreTools*
 /Assets/Plugins/GitHub.meta
 /Assets/Plugins/GitHub/

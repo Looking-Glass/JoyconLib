@@ -20,7 +20,6 @@ public class Joycon
         IMU_DATA_OK,
     };
     public state_ state;
-
     public enum Button : int
     {
         DPAD_DOWN = 0,
@@ -37,12 +36,10 @@ public class Joycon
         SHOULDER_1 = 11,
         SHOULDER_2 = 12
     };
-
     private bool[] pressed = new bool[13];
     private bool[] released = new bool[13];
     private bool[] down = new bool[13];
     private bool[] down_ = new bool[13];
-
 
     public Int16[] stick = { 0, 0 };
 
@@ -55,7 +52,7 @@ public class Joycon
     private const ushort product_l = 0x2006;
     private const ushort product_r = 0x2007;
 
-    private byte[] default_buf = { 0x1, 0x0, 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
+    private byte[] default_buf = { 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
 
     private byte[] stick_raw = { 0, 0, 0 };
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
@@ -77,13 +74,48 @@ public class Joycon
     private float filterweight;
 
     private const uint report_len = 49;
-    private Queue<byte[]> reports = new Queue<byte[]>();
-    private int ret;
+    private struct Report
+    {
+        byte[] r;
+        System.DateTime t;
+        public Report(byte[] report, System.DateTime time)
+        {
+            r = report;
+            t = time;
+        }
+        public System.DateTime GetTime()
+        {
+            return t;
+        }
+        public byte[] GetBuffer()
+        {
+            return r;
+        }
+    };
+    private Queue<Report> reports = new Queue<Report>();
+    public enum DebugType : int
+    {
+        NONE,
+        ALL,
+        COMMS,
+        THREADING,
+        IMU,
+        RUMBLE,
+    };
+    public DebugType debug_type = DebugType.ALL;
     private byte global_count = 0;
     private string debug_str;
 
     public Joycon()
     {
+    }
+    public void DebugPrint(String s, DebugType d)
+    {
+        if (debug_type == DebugType.NONE) return;
+        if (d == debug_type || debug_type == DebugType.ALL)
+        {
+            Debug.Log(s);
+        }
     }
     public bool GetKeyPressed(Button key)
     {
@@ -117,7 +149,7 @@ public class Joycon
             if (ptr == IntPtr.Zero)
             {
                 HIDapi.hid_free_enumeration(ptr);
-                Debug.Log("No Joy-Cons found.");
+                DebugPrint("No Joy-Cons found.", DebugType.ALL);
                 state = state_.NO_JOYCONS;
                 return -1;
             }
@@ -126,16 +158,16 @@ public class Joycon
         if (enumerate.product_id == product_l)
         {
             isleft = true;
-            Debug.Log("Left Joy-Con connected.");
+            DebugPrint("Left Joy-Con connected.", DebugType.ALL);
         }
         else if (enumerate.product_id == product_r)
         {
-            Debug.Log("Right Joy-Con connected.");
+            DebugPrint("Right Joy-Con connected.", DebugType.ALL);
         }
         else
         {
             HIDapi.hid_free_enumeration(ptr);
-            Debug.Log("No Joy-Cons found.");
+            DebugPrint("No Joy-Cons found.", DebugType.ALL);
             state = state_.NO_JOYCONS;
             return -1;
         }
@@ -161,7 +193,7 @@ public class Joycon
         Subcommand(0x40, new byte[] { 0x1 }, 1, true);
         Subcommand(0x3, new byte[] { 0x30 }, 1, true);
 
-        Debug.Log("Done with init.");
+        DebugPrint("Done with init.", DebugType.COMMS);
         return 0;
     }
     public string GetDebugText()
@@ -202,14 +234,14 @@ public class Joycon
         {
             lock (reports)
             {
-                reports.Enqueue(raw_buf);
-                //				if (ts_en == raw_buf [1]) {
-                //					Debug.Log (string.Format("Duplicate timestamp enqueued. TS: {0:X2}", ts_en));
-                //				}
-                //				ts_en = raw_buf [1];
-                //				Debug.Log (string.Format ("Enqueue. Blocking? {0:b}. Bytes read: {1:D}. Timestamp: {2:X2}", block, ret, raw_buf [1]));
+                reports.Enqueue(new Report(raw_buf, System.DateTime.Now));
             }
-
+            if (ts_en == raw_buf[1])
+            {
+                DebugPrint(string.Format("Duplicate timestamp enqueued. TS: {0:X2}", ts_en), DebugType.THREADING);
+            }
+            ts_en = raw_buf[1];
+            DebugPrint(string.Format("Enqueue. Blocking? {0:b}. Bytes read: {1:D}. Timestamp: {2:X2}", block, ret, raw_buf[1]), DebugType.THREADING);
         }
         return ret;
     }
@@ -230,7 +262,7 @@ public class Joycon
             else if (attempts > 1000)
             {
                 state = state_.DROPPED;
-                Debug.Log("Connection lost. Is the Joy-Con connected?");
+                DebugPrint("Connection lost. Is the Joy-Con connected?", DebugType.ALL);
                 break;
             }
             else
@@ -239,7 +271,7 @@ public class Joycon
             }
             ++attempts;
         }
-        Debug.Log("End poll loop.");
+        DebugPrint("End poll loop.", DebugType.THREADING);
     }
     float[] max = { 0, 0, 0 };
     float[] sum = { 0, 0, 0 };
@@ -250,17 +282,19 @@ public class Joycon
             byte[] report_buf = new byte[report_len];
             while (reports.Count > 0)
             {
-
+                Report rep;
                 lock (reports)
                 {
-                    report_buf = reports.Dequeue();
+                    rep = reports.Dequeue();
+                    report_buf = rep.GetBuffer();
                 }
                 ProcessIMU(report_buf);
-                //				if (ts_de == report_buf [1]) {
-                //					Debug.Log (string.Format ("Duplicate timestamp dequeued. TS: {0:X2}", ts_de));
-                //				}
-                //				ts_de = report_buf [1];	
-                //				Debug.Log (string.Format ("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:x2}", reports.Count, report_buf [0], report_buf [1]));
+                if (ts_de == report_buf[1])
+                {
+                    DebugPrint(string.Format("Duplicate timestamp dequeued. TS: {0:X2}", ts_de), DebugType.THREADING);
+                }
+                ts_de = report_buf[1];
+                DebugPrint(string.Format("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:x2}. Lag: {3:s}", reports.Count, report_buf[0], report_buf[1], System.DateTime.Now.Subtract(rep.GetTime())), DebugType.THREADING);
             }
 
             ProcessButtonsAndStick(report_buf);
@@ -398,25 +432,40 @@ public class Joycon
         }
         return s;
     }
-    private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = false)
+    private void Rumble(byte[] buf=null)
+    {
+        byte[] buf_ = new byte[report_len];
+        buf[0] = 0x10;
+        buf_[1] = global_count;
+        if (global_count == 0xf) global_count = 0;
+        else ++global_count;
+        if (buf == null)
+        {
+            Array.Copy(default_buf, 0, buf_, 2, 8);
+        }
+        else
+        {
+            Array.Copy(buf, 0, buf_, 2, 8);
+        }
+        PrintArray(buf_, DebugType.RUMBLE, 8, 0, string.Format("Rumble data sent: {0:S}"));
+        HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
+    }
+    private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = true)
     {
         byte[] buf_ = new byte[report_len];
         byte[] response = new byte[report_len];
-        Array.Copy(default_buf, buf_, 10);
+        Array.Copy(default_buf, 0, buf_, 2, 8);
         Array.Copy(buf, 0, buf_, 11, len);
         buf_[10] = sc;
         buf_[1] = global_count;
-        ++global_count;
-        if (global_count >= 0xf) global_count -= 0xf;
-#if DEBUG
-        if (print) { PrintArray(buf_, len, 11, "Subcommand 0x" + string.Format("{0:X2}", sc) + " sent. Data: 0x{0:S}"); };
-#endif
+        buf_[0] = 0x1;
+        if (global_count == 0xf) global_count = 0;
+        else ++global_count;
+        if (print) { PrintArray(buf_, DebugType.COMMS, len, 11, "Subcommand 0x" + string.Format("{0:X2}", sc) + " sent. Data: 0x{0:S}"); };
         HIDapi.hid_write(handle, buf_, new UIntPtr(len + 11));
         int res = HIDapi.hid_read_timeout(handle, response, new UIntPtr(report_len), 50);
-#if DEBUG
-        if (res < 1) Debug.Log("No response.");
-        else if (print) { PrintArray(response, report_len - 1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
-#endif
+        if (res < 1) DebugPrint("No response.", DebugType.COMMS);
+        else if (print) { PrintArray(response, DebugType.COMMS, report_len - 1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
         return response;
     }
     private void dump_calibration_data()
@@ -427,14 +476,14 @@ public class Joycon
         {
             if (buf_[i] != 0xff)
             {
-                Debug.Log("Using user stick calibration data.");
+                DebugPrint("Using user stick calibration data.", DebugType.COMMS);
                 found = true;
                 break;
             }
         }
         if (!found)
         {
-            Debug.Log("Using factory stick calibration data.");
+            DebugPrint("Using factory stick calibration data.", DebugType.COMMS);
             buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
         }
         stick_cal[0] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]);
@@ -459,20 +508,19 @@ public class Joycon
             }
         }
         Array.Copy(buf_, 20, read_buf, 0, len);
-#if DEBUG
-        if (print) PrintArray(read_buf, len);
-#endif
+        if (print) PrintArray(read_buf, DebugType.COMMS, len);
         return read_buf;
     }
-    private void PrintArray<T>(T[] arr, uint len = 0, uint start = 0, string format = "{0:S}")
+    private void PrintArray<T>(T[] arr, DebugType d = DebugType.NONE, uint len = 0, uint start = 0, string format = "{0:S}")
     {
+        if (d != debug_type && debug_type != DebugType.ALL) return;
         if (len == 0) len = (uint)arr.Length;
         string tostr = "";
         for (int i = 0; i < len; ++i)
         {
             tostr += string.Format((arr[0] is byte) ? "{0:X2} " : ((arr[0] is float) ? "{0:F} " : "{0:D} "), arr[i + start]);
         }
-        Debug.Log(string.Format(format, tostr));
+        DebugPrint(string.Format(format, tostr), d);
     }
 
     

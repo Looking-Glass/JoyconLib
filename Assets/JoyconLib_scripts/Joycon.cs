@@ -69,8 +69,8 @@ public class Joycon
     private Vector3 gyr_g;
     private Vector3 gyr_est;
 
-    public Vector3 pos;
-    public Vector3 euler;
+    private Vector3 pos;
+    private Vector3 euler;
     private float filterweight;
 
     private const uint report_len = 49;
@@ -133,9 +133,17 @@ public class Joycon
     {
         return stick;
     }
-    public Vector3 GetVector()
+    public Vector3 GetVector(int type = 0)
     {
-        return pos;
+        switch (type)
+        {
+            case 1:
+                return acc_g;
+            case 2:
+                return gyr_est.normalized;
+            default:
+                return pos;
+        }
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
     {
@@ -198,7 +206,7 @@ public class Joycon
     }
     public string GetDebugText()
     {
-        if (!buttons[(int)Button.DPAD_DOWN]) debug_str = "x:" + pos[0] + "\ny:" + pos[1] + "\nz:" + pos[2] + "\n";
+        if (!buttons[(int)Button.DPAD_DOWN]) debug_str = "x:" + acc_g[0] + "\ny:" + acc_g[1] + "\nz:" + acc_g[2] + "\n";
         return debug_str;
     }
     public void SetFilterCoeff(float a)
@@ -349,59 +357,70 @@ public class Joycon
             return -1;
 
         if (report_buf[0] != 0x30) return -1; // no gyro data
-                                              // read raw IMU values
+        
+        // read raw IMU values
         int dt = (report_buf[1] - timestamp);
         if (report_buf[1] < timestamp) dt += 0x100;
 
         for (int n = 0; n < 3; ++n)
         {
-            gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+            // first value not useful
+            gyr_r[2] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
             gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
-            gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+            gyr_r[0] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
 
-            acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
-            acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
+            acc_r[1] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+            acc_r[0] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
             acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+
+            acc_r[0] *= -1;
+            acc_r[2] *= -1;
+
 
             for (int i = 0; i < 3; ++i)
             {
-                //gyr_r[i] = (Int16)(gyr_r[i] * ((isleft & i > 0) ? -1 : 1));
                 acc_g[i] = acc_r[i] * 0.00025f;
-                gyr_g[i] = gyr_r[i] * 0.061f;
+                gyr_g[i] = gyr_r[i] * 0.00106528069f;
                 if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
                     max[i] = acc_g[i];
             }
-            //DebugPrint(n+" " + acc_g[2], DebugType.IMU);
-
             acc_g = acc_g.normalized;
-            if (first_imu_packet)
+            if (true)
             {
                 pos = acc_g;
+                euler.x = Mathf.Atan2(pos.x, pos.y);
+                euler.y = Mathf.Atan2(pos.z, pos.y);
+                euler.z = 0;
+                //    euler.z = Mathf.Atan2(pos.x, pos.y);
+                gyr_est = Quaternion.Euler(new Vector3(euler.y, euler.x, euler.z) * 180 / Mathf.PI) * Vector3.forward;
                 first_imu_packet = false;
             }
-            else
-            {
-                for (int i = 0; i < 3; ++i) sum[i] += gyr_g[i] * (0.005f * dt);
-                if (Math.Abs(pos[2]) < 0.1f)
-                {
-                    gyr_est = pos;
-                }
-                else
-                {
-                    euler[0] = Mathf.Atan2(pos[0], pos[2]) + gyr_g[0] * (0.005f * dt);
-                    euler[1] = Mathf.Atan2(pos[1], pos[2]) + gyr_g[1] * (0.005f * dt);
-                    //euler[2] = Mathf.Atan2(pos[0], pos[0]) + gyr_g[1] * (0.005f * dt);
-                }
-                int sign = (Math.Cos(euler[0]) >= 0) ? 1 : -1;
-                for (int i = 0; i < 1; ++i)
-                {
-                    gyr_est[i] = Mathf.Sin(euler[i] * Mathf.PI / 180);
-                    gyr_est[i] /= Mathf.Sqrt(1 + Mathf.Pow((Mathf.Cos(euler[i] * Mathf.PI / 180)), 2) * Mathf.Pow(Mathf.Tan(euler[1 - i] * Mathf.PI / 180), 2));
-                }
-                gyr_est[2] = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est[0], 2) - Mathf.Pow(gyr_est[1], 2));
-            }
-            pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
-            pos = pos.normalized;
+            //else
+            //{
+            //    if (Mathf.Abs(pos.z) < 0f)
+            //    {
+            //        gyr_est = pos;
+            //    }
+            //    else
+            //    {
+            //        // Euler: Ayz, Axz. In radians
+            //        euler.x += gyr_g.x * .005f * dt;
+            //        euler.y += gyr_g.y * .005f * dt;
+            //        euler.z = 0;//+= gyr_g.z * .005f * dt;
+            //        gyr_est = Quaternion.Euler(euler * 180 / Mathf.PI) * Vector3.forward;
+
+            //        gyr_est = gyr_est.normalized;
+            //        //int sign = (Mathf.Cos(euler.x) >= 0) ? 1 : -1;
+            //        //gyr_est.x = 1 / Mathf.Sqrt(1 + 1 / Mathf.Pow((Mathf.Tan(euler.y) * Mathf.Cos(euler.x)), 2));
+            //        //gyr_est.y = Mathf.Sin(euler.x) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(euler.x), 2) * Mathf.Pow(Mathf.Tan(euler.y), 2));
+            //        //gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
+            //    }
+            //}
+            //pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
+            //pos = pos.normalized;
+
+
+
             dt = 1;
         }
         timestamp = report_buf[1] + 2;
@@ -414,12 +433,10 @@ public class Joycon
     }
     public void Recenter()
     {
-        euler[0] = 0;
-        euler[1] = 0;
-        euler[2] = 0;
         pos[0] = 0;
         pos[1] = 0;
         pos[2] = 0;
+        first_imu_packet = true;
     }
     private Int16[] CenterSticks(UInt16[] vals)
     {
@@ -528,6 +545,4 @@ public class Joycon
         }
         DebugPrint(string.Format(format, tostr), d);
     }
-
-    
 }

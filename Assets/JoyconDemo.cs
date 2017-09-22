@@ -6,6 +6,7 @@ public class JoyconDemo : MonoBehaviour {
     private Joycon j;
     private LineRenderer lr;
     private Transform line, sphere;
+    public int sensor_ind;
     // Use this for initialization
     void Start ()
     {
@@ -25,20 +26,19 @@ public class JoyconDemo : MonoBehaviour {
 
     // Update is called once per frame
     void Update () {
-
         if (j != null && j.state > Joycon.state_.ATTACHED)
         {
-            Vector3 p = j.GetVector();
-            Vector3 endpt = new Vector3(-p[1], p[0], -p[2]);
+            Vector3 d = j.GetVector(sensor_ind);
+            Vector3 p = d;
+            //Vector3 p = new Vector3(d.x, 0, 0);
             if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {
                 j.Recenter();
             }
-            lr.SetPosition(0, -2f * endpt);
-            lr.SetPosition(1, 2f * endpt);
-            sphere.position = 2f * endpt;
-        }
-        
+            lr.SetPosition(0, -1f * p);
+            lr.SetPosition(1, p);
+            sphere.position = transform.position + p;
+        }        
     }
 
     private void OnDrawGizmos()
@@ -47,6 +47,6 @@ public class JoyconDemo : MonoBehaviour {
 
     void OnGUI()
     {
-        if (j != null) { GUI.Label(new Rect(0, 0, 200, 100), j.GetDebugText()); };
+        if (sensor_ind == 2 && j != null) { GUI.Label(new Rect(0, 0, 200, 100), j.GetDebugText()); };
     }
 }

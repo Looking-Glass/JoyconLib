@@ -5,7 +5,7 @@ using System;
 public class JoyconManager: MonoBehaviour
 {
     public Joycon j;
-
+	public float[] stick;
     static JoyconManager instance;
     public static JoyconManager Instance
     {
@@ -32,6 +32,7 @@ public class JoyconManager: MonoBehaviour
     void Update()
     {
         j.Update();
+		stick = j.GetStick ();
     }
 
     void OnApplicationQuit()

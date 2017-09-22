@@ -41,7 +41,7 @@ public class Joycon
     public bool[] buttons_up = new bool[13];
     public bool[] buttons = new bool[13];
 
-    public Int16[] stick = { 0, 0 };
+    public float[] stick = { 0, 0 };
 
     private IntPtr handle;
 
@@ -93,7 +93,7 @@ public class Joycon
     {
         return buttons_up[(int)b];
     }
-    public Int16[] GetStick()
+    public float[] GetStick()
     {
         return stick;
     }
@@ -350,21 +350,21 @@ public class Joycon
         pos[1] = 0;
         pos[2] = 0;
     }
-    private Int16[] CenterSticks(UInt16[] vals)
+    private float[] CenterSticks(UInt16[] vals)
     {
-        Int16[] s = { 0, 0 };
 
+        float[] s = { 0, 0 };
         for (uint i = 0; i < 2; ++i)
         {
-            if (vals[i] < deadzone)
-                vals[i] = 0;
-            else if (vals[i] > stick_cal[2 + i])
+			float diff = vals [i] - stick_cal [2 + i];
+			if (Math.Abs(diff) < deadzone) vals[i] = 0;
+			else if (diff > 0) // if axis is above center
             {
-                s[i] = (Int16)((vals[i] - stick_cal[2 + i]) * -1.0f / stick_cal[i] * 32768);
+				s[i] = diff / stick_cal[i];
             }
             else
             {
-                s[i] = (Int16)((vals[i] - stick_cal[2 + i]) * 1.0f / stick_cal[4 + i] * 32768);
+				s[i] = diff / stick_cal[4+i];
             }
         }
         return s;
@@ -408,15 +408,17 @@ public class Joycon
             Debug.Log("Using factory stick calibration data.");
             buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
         }
-        stick_cal[0] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]);
-        stick_cal[1] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));
-        stick_cal[2] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
-        stick_cal[3] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));
-        stick_cal[4] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]);
-        stick_cal[5] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));   
+        stick_cal[isleft? 0 : 2] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]); // X Axis Max above center
+        stick_cal[isleft? 1 : 3] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));  // Y Axis Max above center
+        stick_cal[isleft? 2 : 4] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]); // X Axis Center
+        stick_cal[isleft? 3 : 5] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));  // Y Axis Center
+		stick_cal[isleft? 4 : 0] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]); // X Axis Min below center
+        stick_cal[isleft? 5 : 1] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));  // Y Axis Min below center
+
+		PrintArray (stick_cal, len: 6, start: 0, format: "Stick calibration data: {0:S}");
 
         buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
-        deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
+		deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
     }
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {

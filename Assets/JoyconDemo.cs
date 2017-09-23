@@ -35,6 +35,9 @@ public class JoyconDemo : MonoBehaviour {
             {
                 j.Recenter();
             }
+			if (j.GetButtonDown (Joycon.Button.SHOULDER_1)) {
+				j.EnqueueRumble (100);
+			}
             lr.SetPosition(0, -1f * p);
             lr.SetPosition(1, p);
             sphere.position = transform.position + p;

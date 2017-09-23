@@ -126,7 +126,7 @@ public class Joycon
     }
     public bool GetButtonDown(Button b)
     {
-        return buttons_down[(int)b];
+		return buttons_down[(int)b];
     }
     public bool GetButton(Button b)
     {
@@ -332,7 +332,6 @@ public class Joycon
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = CenterSticks(stick_precal);
-
 		lock (buttons) {
 			lock (down_) {
 				for (int i = 0; i < buttons.Length; ++i) {
@@ -347,7 +346,6 @@ public class Joycon
 			buttons [(int)Button.MINUS] = ((report_buf [4] & 0x01) != 0);
 			buttons [(int)Button.PLUS] = ((report_buf [4] & 0x02) != 0);
 			buttons [(int)Button.STICK] = ((report_buf [4] & (isleft ? 0x08 : 0x04)) != 0);
-			buttons [(int)Button.SHOULDER_2] = (report_buf [3 + (isleft ? 2 : 0)] & 0x80) != 0;
 			buttons [(int)Button.SHOULDER_1] = (report_buf [3 + (isleft ? 2 : 0)] & 0x40) != 0;
 			buttons [(int)Button.SHOULDER_2] = (report_buf [3 + (isleft ? 2 : 0)] & 0x80) != 0;
 			buttons [(int)Button.SR] = (report_buf [3 + (isleft ? 2 : 0)] & 0x10) != 0;
@@ -515,12 +513,7 @@ public class Joycon
         {
             Array.Copy(buf, 0, buf_, 2, 8);
         }
-		string s="";
-		for (int i = 0; i < report_len; ++i) {
-			s+=string.Format("{0:X2}",buf_ [i]);
-		}
-		Debug.Log(string.Format("Rumble sent: {0:s}",s));
-		//PrintArray(buf_, DebugType.RUMBLE, 8, 0, string.Format("Rumble data sent: {0:S}"));
+		PrintArray(buf_, DebugType.RUMBLE, format:"Rumble data sent: {0:S}");
 		HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
     }
     private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = true)

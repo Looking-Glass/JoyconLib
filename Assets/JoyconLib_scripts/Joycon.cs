@@ -64,14 +64,14 @@ public class Joycon
     private bool first_imu_packet = true;
     private bool imu_enabled = false;
     private Int16[] acc_r = { 0, 0, 0 };
-    private Vector3 acc_g;
+    public Vector3 acc_g;
 
     private Int16[] gyr_r = { 0, 0, 0 };
-    private Vector3 gyr_g;
+    public Vector3 gyr_g;
     private Vector3 gyr_est;
+	private float Axz, Ayz;
 
     private Vector3 pos;
-    private Vector3 euler;
     private float filterweight;
 
     private const uint report_len = 49;
@@ -376,17 +376,15 @@ public class Joycon
         for (int n = 0; n < 3; ++n)
         {
             // first value not useful
-            gyr_r[2] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+			gyr_r[2] = 0;//(Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
             gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
             gyr_r[0] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
 
-            acc_r[1] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
-            acc_r[0] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
-            acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+            acc_r[2] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+            acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
+            acc_r[0] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
-            acc_r[0] *= -1;
-            acc_r[2] *= -1;
-
+			gyr_r [1] *= -1;
 
             for (int i = 0; i < 3; ++i)
             {
@@ -396,41 +394,32 @@ public class Joycon
                     max[i] = acc_g[i];
             }
             acc_g = acc_g.normalized;
-            if (true)
+            if (first_imu_packet)
             {
                 pos = acc_g;
-                euler.x = Mathf.Atan2(pos.x, pos.y);
-                euler.y = Mathf.Atan2(pos.z, pos.y);
-                euler.z = 0;
-                //    euler.z = Mathf.Atan2(pos.x, pos.y);
-                gyr_est = Quaternion.Euler(new Vector3(euler.y, euler.x, euler.z) * 180 / Mathf.PI) * Vector3.forward;
                 first_imu_packet = false;
             }
-            //else
-            //{
-            //    if (Mathf.Abs(pos.z) < 0f)
-            //    {
-            //        gyr_est = pos;
-            //    }
-            //    else
-            //    {
-            //        // Euler: Ayz, Axz. In radians
-            //        euler.x += gyr_g.x * .005f * dt;
-            //        euler.y += gyr_g.y * .005f * dt;
-            //        euler.z = 0;//+= gyr_g.z * .005f * dt;
-            //        gyr_est = Quaternion.Euler(euler * 180 / Mathf.PI) * Vector3.forward;
+            else
+            {
+                if (Mathf.Abs(pos.z) < 0.1f)
+                {
+                    gyr_est = pos;
+                }
+                else
+                {
+                    // Euler: Ayz, Axz. In radians
+					Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.x * .005f * dt;
+					Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.y * .005f * dt;
 
-            //        gyr_est = gyr_est.normalized;
-            //        //int sign = (Mathf.Cos(euler.x) >= 0) ? 1 : -1;
-            //        //gyr_est.x = 1 / Mathf.Sqrt(1 + 1 / Mathf.Pow((Mathf.Tan(euler.y) * Mathf.Cos(euler.x)), 2));
-            //        //gyr_est.y = Mathf.Sin(euler.x) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(euler.x), 2) * Mathf.Pow(Mathf.Tan(euler.y), 2));
-            //        //gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
-            //    }
-            //}
-            //pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
-            //pos = pos.normalized;
-
-
+                    int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
+					gyr_est.x = Mathf.Sin (Axz) / Mathf.Sqrt (1 + Mathf.Pow(Mathf.Tan(Ayz),2)*Mathf.Pow(Mathf.Cos(Axz),2));
+                    gyr_est.y = Mathf.Sin(Ayz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(Ayz), 2) * Mathf.Pow(Mathf.Tan(Axz), 2));
+                    gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
+					gyr_est = gyr_est.normalized;
+                }
+            }
+            pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
+            pos = pos.normalized;
 
             dt = 1;
         }

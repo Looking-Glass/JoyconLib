@@ -7,6 +7,8 @@ public class JoyconDemo : MonoBehaviour {
     private LineRenderer lr;
     private Transform line, sphere;
     public int sensor_ind;
+	public Vector3 gyr_g;
+	public Vector3 acc_g;
     // Use this for initialization
     void Start ()
     {
@@ -28,16 +30,14 @@ public class JoyconDemo : MonoBehaviour {
     void Update () {
         if (j != null && j.state > Joycon.state_.ATTACHED)
         {
-            Vector3 d = j.GetVector(sensor_ind);
-            Vector3 p = d;
-            //Vector3 p = new Vector3(d.x, 0, 0);
+            Vector3 p = j.GetVector(sensor_ind);
+			p = Quaternion.Euler (new Vector3(-90, 0, 90)) * p;
             if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {
                 j.Recenter();
             }
-			if (j.GetButtonDown (Joycon.Button.SHOULDER_1)) {
-				j.EnqueueRumble (100);
-			}
+			gyr_g = j.gyr_g;
+			acc_g = j.acc_g;
             lr.SetPosition(0, -1f * p);
             lr.SetPosition(1, p);
             sphere.position = transform.position + p;

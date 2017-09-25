@@ -9,6 +9,9 @@ public class JoyconDemo : MonoBehaviour {
     public int sensor_ind;
 	public Vector3 gyr_g;
 	public Vector3 acc_g;
+    public float amp;
+    public int t;
+    public float freq;
     // Use this for initialization
     void Start ()
     {
@@ -36,6 +39,27 @@ public class JoyconDemo : MonoBehaviour {
             {
                 j.Recenter();
             }
+            if (j.GetButtonDown(Joycon.Button.SHOULDER_1))
+            {
+                j.EnqueueRumble(freq, amp, t);
+            }
+            if (j.GetButtonDown(Joycon.Button.DPAD_RIGHT))
+            {
+                amp += 0.05f;
+            }
+            if (j.GetButtonDown(Joycon.Button.DPAD_LEFT))
+            {
+                amp -= 0.05f;
+            }
+            if (j.GetButtonDown(Joycon.Button.DPAD_UP))
+            {
+                freq += 20f;
+            }
+            if (j.GetButtonDown(Joycon.Button.DPAD_DOWN))
+            {
+                freq -= 20f;
+            }
+            j.SendRumble(freq, Mathf.Abs(j.GetStick()[1]));
 			gyr_g = j.gyr_g;
 			acc_g = j.acc_g;
             lr.SetPosition(0, -1f * p);

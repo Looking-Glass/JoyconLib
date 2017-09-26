@@ -59,7 +59,7 @@ public class JoyconDemo : MonoBehaviour {
             {
                 freq -= 20f;
             }
-            j.SendRumble(freq, Mathf.Abs(j.GetStick()[1]));
+            //j.SendRumble(freq, Mathf.Abs(j.GetStick()[1]));
 			gyr_g = j.gyr_g;
 			acc_g = j.acc_g;
             lr.SetPosition(0, -1f * p);

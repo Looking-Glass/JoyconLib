@@ -128,25 +128,41 @@ public class Joycon
             }
             if (encoded_hex_freq < 0xc0)
             {
-                lf = (byte)(encoded_hex_freq - 0x40);
+                lf = (byte)(encoded_hex_freq - 0x60);
             }
-            byte hf_amp = (byte)(amp * 0xc8);
-            byte lf_amp = (byte)(0x40 + amp * 0x32);
+            byte hf_amp;
+            if (amp == 0) hf_amp = 0;
+            else if (amp < 0.117) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) / (5 - Mathf.Pow(amp, 2)) - 1);
+            else if (amp < 0.23) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) - 0x5c);
+            else hf_amp = (byte)((((Mathf.Log(amp * 1000,2) * 32) - 0x60) * 2) - 0xf6);
+
+            UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp) / 2);
+            byte parity = (byte)(lf_amp % 2);
+            if (parity > 0)
+            {
+                --lf_amp;
+            }
+
+            lf_amp /= 2;
+            lf_amp += 0x40;
+            if (parity > 0) lf_amp |= 0x8000;
             rumble_data = new byte[8];
             rumble_data[0] = (byte)(hf & 0xff);
             rumble_data[1] = (byte)((hf >> 8) & 0xff);
             rumble_data[2] = lf;
 
             rumble_data[1] += hf_amp;
-            rumble_data[3] += lf_amp;
+            rumble_data[2] += (byte)((lf_amp >> 8) & 0xff);
+            rumble_data[3] += (byte)(lf_amp & 0xff);
             for (int i = 0; i < 4; ++i)
             {
                 rumble_data[4 + i] = rumble_data[i];
             }
-            Debug.Log(string.Format("lf_amp: {0:X2}", lf_amp));
+            //Debug.Log(string.Format("Encoded hex freq: {0:X2}", encoded_hex_freq));
+            Debug.Log(string.Format("lf_amp: {0:X4}", lf_amp));
             Debug.Log(string.Format("hf_amp: {0:X2}", hf_amp));
-            Debug.Log(string.Format("hf: {0:X4}", hf));
-            Debug.Log(string.Format("lf: {0:X2}", lf));
+            //Debug.Log(string.Format("hf: {0:X4}", hf));
+            //Debug.Log(string.Format("lf: {0:X2}", lf));
 
             time = t;
         }
@@ -561,7 +577,7 @@ public class Joycon
             Array.Copy(buf, 0, buf_, 2, 8);
         }
 		PrintArray(buf_, DebugType.RUMBLE, format:"Rumble data sent: {0:S}");
-        HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
+        //HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
     }
     private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = true)
     {

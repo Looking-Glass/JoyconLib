@@ -9,23 +9,19 @@ public class JoyconManager: MonoBehaviour
     static JoyconManager instance;
     public static JoyconManager Instance
     {
-        get
-        {
-            if (instance != null) return instance;
-            instance = FindObjectOfType<JoyconManager>();
-            return instance;
-        }
-        private set { instance = value; }
+       get { return instance; }
     }
     void Awake()
     {
+        if (instance != null) Destroy(gameObject);
         instance = this;
+        j = new Joycon();
     }
     // Use this for initialization
     void Start()
     {
-        j = new Joycon();
-        j.Attach(alpha: .1f, leds: 0x0, imu: true);
+        j.Attach(alpha: 10f, leds: 0xf, imu: true);
+		j.Begin ();
     }
 
     // Update is called once per frame

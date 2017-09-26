@@ -95,60 +95,41 @@ public class Joycon
     };
     private struct Rumble
     {
-        public float freq, amp;
-        public Rumble(float f, float a)
+        public float h_f, amp, l_f;
+        public Rumble(float low_freq, float high_freq, float amplitude)
         {
-            freq = f;
-            amp = a;
+            h_f = high_freq;
+            amp = amplitude;
+            l_f = low_freq;
+        }
+        private float clamp(float x, float min, float max)
+        {
+            if (x < min) return min;
+            if (x > max) return max;
+            return x;
         }
         public byte[] GetData()
         {
-            if (amp == 0) {
-                byte[] r = { 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
-                return r;
-            }
             byte[] rumble_data = new byte[8];
-            if (freq < 0.0f)
-            {
-                freq = 0.0f;
-            }
-            else if (freq > 1252.0f)
-            {
-                freq = 1252.0f;
-            }
-            if (amp < 0.0f)
-            {
-                amp = 0.0f;
-            }
-            else if (amp > 1.0f)
-            {
-                amp = 1.0f;
-            }
-            byte encoded_hex_freq = (byte)Mathf.Round(32f * Mathf.Log(freq / 10f, 2f));
-            UInt16 hf = 0;
-            byte lf = 0;
-            if (encoded_hex_freq > 0x60)
-            {
-                hf = (UInt16)((encoded_hex_freq - 0x60) * 4);
-            }
-            if (encoded_hex_freq < 0xc0)
-            {
-                lf = (byte)(encoded_hex_freq - 0x40);
-            }
+            l_f = clamp(l_f, 40.875885f, 626.286133f);
+            amp = clamp(amp, 0.0f, 1.0f);
+            h_f = clamp(h_f, 81.75177f, 1252.572266f);
+            UInt16 hf = (UInt16)((Mathf.Round(32f * Mathf.Log(h_f * 0.1f, 2)) - 0x60)*4);
+            byte lf = (byte)(Mathf.Round(32f * Mathf.Log(l_f * 0.1f, 2)) - 0x40);
             byte hf_amp;
             if (amp == 0) hf_amp = 0;
             else if (amp < 0.117) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) / (5 - Mathf.Pow(amp, 2)) - 1);
             else if (amp < 0.23) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) - 0x5c);
             else hf_amp = (byte)((((Mathf.Log(amp * 1000, 2) * 32) - 0x60) * 2) - 0xf6);
 
-            UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp) / 2);
+            UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp)*.5);
             byte parity = (byte)(lf_amp % 2);
             if (parity > 0)
             {
                 --lf_amp;
             }
 
-            lf_amp /= 2;
+            lf_amp = (UInt16)(lf_amp >> 1);
             lf_amp += 0x40;
             if (parity > 0) lf_amp |= 0x8000;
             rumble_data = new byte[8];
@@ -166,8 +147,9 @@ public class Joycon
             //Debug.Log(string.Format("Encoded hex freq: {0:X2}", encoded_hex_freq));
             //Debug.Log(string.Format("lf_amp: {0:X4}", lf_amp));
             //Debug.Log(string.Format("hf_amp: {0:X2}", hf_amp));
-            //Debug.Log(string.Format("hf: {0:X4}", hf));
-            //Debug.Log(string.Format("lf: {0:X2}", lf));
+            Debug.Log(string.Format("l_f: {0:D}", l_f));
+            Debug.Log(string.Format("hf: {0:X4}", hf));
+            Debug.Log(string.Format("lf: {0:X2}", lf));
             return rumble_data;
         }
     }
@@ -188,7 +170,7 @@ public class Joycon
 
     public Joycon()
     {
-        rumble_obj = new Rumble(320, 0);
+        rumble_obj = new Rumble(160, 320, 0);
     }
     public void DebugPrint(String s, DebugType d)
     {
@@ -345,6 +327,7 @@ public class Joycon
         while (!stop_polling)
         {
             int a = ReceiveRaw(recvd);
+
             if (a > 0)
             {
                 state = state_.IMU_DATA_OK;
@@ -533,12 +516,9 @@ public class Joycon
         }
         return s;
     }
-    public void SetRumble(float freq, float amp)
+    public void SetRumble(float low_freq, float high_freq, float amp)
     {
-        if (freq != rumble_obj.freq || amp != rumble_obj.amp)
-        {
-            rumble_obj = new Rumble(freq, amp);
-        }
+        rumble_obj = new Rumble(low_freq, high_freq, amp);
     }
 	private void RumbleListener(){
 		while (!stop_polling) {
@@ -554,7 +534,7 @@ public class Joycon
         if (global_count == 0xf) global_count = 0;
         else ++global_count;
         Array.Copy(buf, 0, buf_, 2, 8);
-		//PrintArray(buf_, DebugType.RUMBLE, format:"Rumble data sent: {0:S}");
+        PrintArray(buf_, DebugType.RUMBLE, format: "Rumble data sent: {0:S}");
         HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
     }
     private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = true)

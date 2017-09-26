@@ -13,7 +13,8 @@ public class JoyconDemo : MonoBehaviour {
     public bool lock_rumble;
     public float r;
     public int t;
-    public float freq;
+    public float low_freq = 160;
+    public float high_freq = 320;
     // Use this for initialization
     void Start ()
     {
@@ -47,23 +48,23 @@ public class JoyconDemo : MonoBehaviour {
             }
             if (j.GetButtonDown(Joycon.Button.DPAD_RIGHT))
             {
-                amp += 0.05f;
+                high_freq += 20f;
             }
             if (j.GetButtonDown(Joycon.Button.DPAD_LEFT))
             {
-                amp -= 0.05f;
+                high_freq -= 20f;
             }
             if (j.GetButtonDown(Joycon.Button.DPAD_UP))
             {
-                freq += 20f;
+                low_freq += 20f;
             }
             if (j.GetButtonDown(Joycon.Button.DPAD_DOWN))
             {
-                freq -= 20f;
+                low_freq -= 20f;
             }
             if (!lock_rumble) r = Mathf.Abs(j.GetStick()[1])*0.75f;
 
-            j.SetRumble(freq, r);
+            j.SetRumble(low_freq, high_freq, r);
             gyr_g = j.gyr_g;
 			acc_g = j.acc_g;
             lr.SetPosition(0, -1f * p);

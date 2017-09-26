@@ -56,7 +56,7 @@ public class Joycon
 
     private byte[] stick_raw = { 0, 0, 0 };
     private UInt16[] stick_cal = { 0, 0, 0, 0, 0, 0 };
-	private UInt16 deadzone;
+    private UInt16 deadzone;
     private UInt16[] stick_precal = { 0, 0 };
 
     private bool stop_polling = false;
@@ -69,7 +69,7 @@ public class Joycon
     private Int16[] gyr_r = { 0, 0, 0 };
     public Vector3 gyr_g;
     private Vector3 gyr_est;
-	private float Axz, Ayz;
+    private float Axz, Ayz;
 
     private Vector3 pos;
     private float filterweight;
@@ -95,13 +95,19 @@ public class Joycon
     };
     private struct Rumble
     {
-        public byte[] rumble_data;
-        public Int32 time;
         public float freq, amp;
-        public Rumble(float f, float a, Int32 t)
+        public Rumble(float f, float a)
         {
             freq = f;
             amp = a;
+        }
+        public byte[] GetData()
+        {
+            if (amp == 0) {
+                byte[] r = { 0x0, 0x1, 0x40, 0x40, 0x0, 0x1, 0x40, 0x40 };
+                return r;
+            }
+            byte[] rumble_data = new byte[8];
             if (freq < 0.0f)
             {
                 freq = 0.0f;
@@ -133,7 +139,7 @@ public class Joycon
             if (amp == 0) hf_amp = 0;
             else if (amp < 0.117) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) / (5 - Mathf.Pow(amp, 2)) - 1);
             else if (amp < 0.23) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) - 0x5c);
-            else hf_amp = (byte)((((Mathf.Log(amp * 1000,2) * 32) - 0x60) * 2) - 0xf6);
+            else hf_amp = (byte)((((Mathf.Log(amp * 1000, 2) * 32) - 0x60) * 2) - 0xf6);
 
             UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp) / 2);
             byte parity = (byte)(lf_amp % 2);
@@ -158,16 +164,15 @@ public class Joycon
                 rumble_data[4 + i] = rumble_data[i];
             }
             //Debug.Log(string.Format("Encoded hex freq: {0:X2}", encoded_hex_freq));
-            Debug.Log(string.Format("lf_amp: {0:X4}", lf_amp));
-            Debug.Log(string.Format("hf_amp: {0:X2}", hf_amp));
+            //Debug.Log(string.Format("lf_amp: {0:X4}", lf_amp));
+            //Debug.Log(string.Format("hf_amp: {0:X2}", hf_amp));
             //Debug.Log(string.Format("hf: {0:X4}", hf));
             //Debug.Log(string.Format("lf: {0:X2}", lf));
-
-            time = t;
+            return rumble_data;
         }
     }
     private Queue<Report> reports = new Queue<Report>();
-	private Queue<Rumble> rumbles = new Queue<Rumble>();
+    private Rumble rumble_obj;
     public enum DebugType : int
     {
         NONE,
@@ -183,6 +188,7 @@ public class Joycon
 
     public Joycon()
     {
+        rumble_obj = new Rumble(320, 0);
     }
     public void DebugPrint(String s, DebugType d)
     {
@@ -194,7 +200,7 @@ public class Joycon
     }
     public bool GetButtonDown(Button b)
     {
-		return buttons_down[(int)b];
+        return buttons_down[(int)b];
     }
     public bool GetButton(Button b)
     {
@@ -275,7 +281,7 @@ public class Joycon
         imu_enabled = imu;
         Subcommand(0x40, new byte[] { 0x1 }, 1, true);
         Subcommand(0x3, new byte[] { 0x30 }, 1, true);
-		Subcommand(0x48, new byte[] { 0x1 }, 1, true);
+        Subcommand(0x48, new byte[] { 0x1 }, 1, true);
         DebugPrint("Done with init.", DebugType.COMMS);
         return 0;
     }
@@ -291,14 +297,14 @@ public class Joycon
     public void Detach()
     {
         stop_polling = true;
-        PrintArray(max, format: "max {0:S}", d:DebugType.IMU);
-        PrintArray(sum, format: "Sum {0:S}", d:DebugType.IMU);
+        PrintArray(max, format: "max {0:S}", d: DebugType.IMU);
+        PrintArray(sum, format: "Sum {0:S}", d: DebugType.IMU);
         if (state > state_.NO_JOYCONS)
         {
             Subcommand(0x30, new byte[] { 0x0 }, 1);
             Subcommand(0x40, new byte[] { 0x0 }, 1);
-			Subcommand(0x48, new byte[] { 0x0 }, 1);
-			Subcommand(0x3, new byte[] { 0x3f }, 1);
+            Subcommand(0x48, new byte[] { 0x0 }, 1);
+            Subcommand(0x3, new byte[] { 0x3f }, 1);
         }
         if (state > state_.DROPPED)
         {
@@ -331,7 +337,7 @@ public class Joycon
         return ret;
     }
     private Thread PollThreadObj;
-	private Thread RumbleThreadObj;
+    private Thread RumbleThreadObj;
     private void Poll()
     {
         bool recvd = false;
@@ -354,7 +360,7 @@ public class Joycon
             else
             {
                 DebugPrint("Pause 5ms", DebugType.THREADING);
-				Thread.Sleep((Int32)5);
+                Thread.Sleep((Int32)5);
             }
             ++attempts;
         }
@@ -400,33 +406,33 @@ public class Joycon
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = CenterSticks(stick_precal);
-		lock (buttons) {
-			lock (down_) {
-				for (int i = 0; i < buttons.Length; ++i) {
-					down_ [i] = buttons [i];
-				}
-			}
-			buttons [(int)Button.DPAD_DOWN] = (report_buf [3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
-			buttons [(int)Button.DPAD_RIGHT] = (report_buf [3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
-			buttons [(int)Button.DPAD_UP] = (report_buf [3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
-			buttons [(int)Button.DPAD_LEFT] = (report_buf [3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
-			buttons [(int)Button.HOME] = ((report_buf [4] & 0x10) != 0);
-			buttons [(int)Button.MINUS] = ((report_buf [4] & 0x01) != 0);
-			buttons [(int)Button.PLUS] = ((report_buf [4] & 0x02) != 0);
-			buttons [(int)Button.STICK] = ((report_buf [4] & (isleft ? 0x08 : 0x04)) != 0);
-			buttons [(int)Button.SHOULDER_1] = (report_buf [3 + (isleft ? 2 : 0)] & 0x40) != 0;
-			buttons [(int)Button.SHOULDER_2] = (report_buf [3 + (isleft ? 2 : 0)] & 0x80) != 0;
-			buttons [(int)Button.SR] = (report_buf [3 + (isleft ? 2 : 0)] & 0x10) != 0;
-			buttons [(int)Button.SL] = (report_buf [3 + (isleft ? 2 : 0)] & 0x20) != 0;
-			lock (buttons_up) {
-				lock (buttons_down) {
-					for (int i = 0; i < buttons.Length; ++i) {
-						buttons_up [i] = (down_ [i] & !buttons [i]);
-						buttons_down [i] = (!down_ [i] & buttons [i]);
-					}
-				}
-			}
-		}
+        lock (buttons) {
+            lock (down_) {
+                for (int i = 0; i < buttons.Length; ++i) {
+                    down_[i] = buttons[i];
+                }
+            }
+            buttons[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
+            buttons[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
+            buttons[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
+            buttons[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
+            buttons[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
+            buttons[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
+            buttons[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
+            buttons[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
+            buttons[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
+            buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
+            buttons[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
+            buttons[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+            lock (buttons_up) {
+                lock (buttons_down) {
+                    for (int i = 0; i < buttons.Length; ++i) {
+                        buttons_up[i] = (down_[i] & !buttons[i]);
+                        buttons_down[i] = (!down_[i] & buttons[i]);
+                    }
+                }
+            }
+        }
         return 0;
     }
     private int ProcessIMU(byte[] report_buf)
@@ -436,7 +442,7 @@ public class Joycon
             return -1;
 
         if (report_buf[0] != 0x30) return -1; // no gyro data
-        
+
         // read raw IMU values
         int dt = (report_buf[1] - timestamp);
         if (report_buf[1] < timestamp) dt += 0x100;
@@ -444,7 +450,7 @@ public class Joycon
         for (int n = 0; n < 3; ++n)
         {
             // first value not useful
-			gyr_r[2] = 0;//(Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+            gyr_r[2] = 0;//(Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
             gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
             gyr_r[0] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
 
@@ -452,7 +458,7 @@ public class Joycon
             acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
             acc_r[0] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
-			gyr_r [1] *= -1;
+            gyr_r[1] *= -1;
 
             for (int i = 0; i < 3; ++i)
             {
@@ -476,14 +482,14 @@ public class Joycon
                 else
                 {
                     // Euler: Ayz, Axz. In radians
-					Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.x * .005f * dt;
-					Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.y * .005f * dt;
+                    Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.x * .005f * dt;
+                    Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.y * .005f * dt;
 
                     int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
-					gyr_est.x = Mathf.Sin (Axz) / Mathf.Sqrt (1 + Mathf.Pow(Mathf.Tan(Ayz),2)*Mathf.Pow(Mathf.Cos(Axz),2));
+                    gyr_est.x = Mathf.Sin(Axz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Tan(Ayz), 2) * Mathf.Pow(Mathf.Cos(Axz), 2));
                     gyr_est.y = Mathf.Sin(Ayz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(Ayz), 2) * Mathf.Pow(Mathf.Tan(Axz), 2));
                     gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
-					gyr_est = gyr_est.normalized;
+                    gyr_est = gyr_est.normalized;
                 }
             }
             pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
@@ -498,8 +504,8 @@ public class Joycon
     {
         PollThreadObj = new Thread(new ThreadStart(Poll));
         PollThreadObj.Start();
-		RumbleThreadObj = new Thread (new ThreadStart (RumbleListener));
-		RumbleThreadObj.Start ();
+        RumbleThreadObj = new Thread(new ThreadStart(RumbleListener));
+        RumbleThreadObj.Start();
     }
     public void Recenter()
     {
@@ -508,81 +514,48 @@ public class Joycon
         pos[2] = 0;
         first_imu_packet = true;
     }
-	private float[] CenterSticks(UInt16[] vals)
-	{
-
-		float[] s = { 0, 0 };
-		for (uint i = 0; i < 2; ++i)
-		{
-			float diff = vals [i] - stick_cal [2 + i];
-			if (Math.Abs(diff) < deadzone) vals[i] = 0;
-			else if (diff > 0) // if axis is above center
-			{
-				s[i] = diff / stick_cal[i];
-			}
-			else
-			{
-				s[i] = diff / stick_cal[4+i];
-			}
-		}
-		return s;
-	}
-    public void EnqueueRumble(float freq, float amp, Int32 time_ms)
+    private float[] CenterSticks(UInt16[] vals)
     {
-        Rumble r = new Rumble(freq, amp, time_ms);
-        lock (rumbles)
+
+        float[] s = { 0, 0 };
+        for (uint i = 0; i < 2; ++i)
         {
-            rumbles.Enqueue(r);
+            float diff = vals[i] - stick_cal[2 + i];
+            if (Math.Abs(diff) < deadzone) vals[i] = 0;
+            else if (diff > 0) // if axis is above center
+            {
+                s[i] = diff / stick_cal[i];
+            }
+            else
+            {
+                s[i] = diff / stick_cal[4 + i];
+            }
+        }
+        return s;
+    }
+    public void SetRumble(float freq, float amp)
+    {
+        if (freq != rumble_obj.freq || amp != rumble_obj.amp)
+        {
+            rumble_obj = new Rumble(freq, amp);
         }
     }
 	private void RumbleListener(){
 		while (!stop_polling) {
-			if (rumbles.Count > 0) {
-				Rumble r;
-				lock (rumbles) {
-					r = rumbles.Dequeue ();
-				}
-                DebugPrint("Rumble sent", DebugType.RUMBLE);
-                SendRumble(r.rumble_data);
-                if (r.time > 0)
-                {
-                    DebugPrint("Sleep started", DebugType.RUMBLE);
-                    Thread.Sleep(r.time);
-                    DebugPrint("Sleep over", DebugType.RUMBLE);
-                    SendRumble();
-                    DebugPrint("Rumble off", DebugType.RUMBLE);
-                }
-                else
-                {
-                    DebugPrint("No sleep param specified. Sleeping for 15ms.", DebugType.RUMBLE);
-                    Thread.Sleep(15);
-                    DebugPrint("Ready for next rumble.", DebugType.RUMBLE);
-                }
-            }
+            SendRumble(rumble_obj.GetData());
+            Thread.Sleep(20);
         }
 	}
-    public void SendRumble(float freq, float amp)
-    {
-        Rumble r = new Rumble(freq, amp, 0);
-        SendRumble(r.rumble_data);
-    }
-    private void SendRumble(byte[] buf=null)
+    private void SendRumble(byte[] buf)
     {
         byte[] buf_ = new byte[report_len];
         buf_[0] = 0x10;
         buf_[1] = global_count;
         if (global_count == 0xf) global_count = 0;
         else ++global_count;
-        if (buf == null)
-        {
-            Array.Copy(default_buf, 0, buf_, 2, 8);
-        }
-        else
-        {
-            Array.Copy(buf, 0, buf_, 2, 8);
-        }
-		PrintArray(buf_, DebugType.RUMBLE, format:"Rumble data sent: {0:S}");
-        //HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
+        Array.Copy(buf, 0, buf_, 2, 8);
+		//PrintArray(buf_, DebugType.RUMBLE, format:"Rumble data sent: {0:S}");
+        HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
     }
     private byte[] Subcommand(byte sc, byte[] buf, uint len, bool print = true)
     {
@@ -630,7 +603,7 @@ public class Joycon
 		PrintArray (stick_cal, len: 6, start: 0, format: "Stick calibration data: {0:S}");
 
 		buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
-		deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
+        deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
 	}
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {

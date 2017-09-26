@@ -123,12 +123,11 @@ public class Joycon
             byte lf = 0;
             if (encoded_hex_freq > 0x60)
             {
-
                 hf = (UInt16)((encoded_hex_freq - 0x60) * 4);
             }
             if (encoded_hex_freq < 0xc0)
             {
-                lf = (byte)(encoded_hex_freq - 0x60);
+                lf = (byte)(encoded_hex_freq - 0x40);
             }
             byte hf_amp;
             if (amp == 0) hf_amp = 0;
@@ -552,7 +551,13 @@ public class Joycon
                     DebugPrint("Sleep over", DebugType.RUMBLE);
                     SendRumble();
                     DebugPrint("Rumble off", DebugType.RUMBLE);
-                }              
+                }
+                else
+                {
+                    DebugPrint("No sleep param specified. Sleeping for 15ms.", DebugType.RUMBLE);
+                    Thread.Sleep(15);
+                    DebugPrint("Ready for next rumble.", DebugType.RUMBLE);
+                }
             }
         }
 	}

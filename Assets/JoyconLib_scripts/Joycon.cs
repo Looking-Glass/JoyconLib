@@ -110,6 +110,7 @@ public class Joycon
         }
         public byte[] GetData()
         {
+
             byte[] rumble_data = new byte[8];
             l_f = clamp(l_f, 40.875885f, 626.286133f);
             amp = clamp(amp, 0.0f, 1.0f);
@@ -136,7 +137,6 @@ public class Joycon
             rumble_data[0] = (byte)(hf & 0xff);
             rumble_data[1] = (byte)((hf >> 8) & 0xff);
             rumble_data[2] = lf;
-
             rumble_data[1] += hf_amp;
             rumble_data[2] += (byte)((lf_amp >> 8) & 0xff);
             rumble_data[3] += (byte)(lf_amp & 0xff);
@@ -147,9 +147,9 @@ public class Joycon
             //Debug.Log(string.Format("Encoded hex freq: {0:X2}", encoded_hex_freq));
             //Debug.Log(string.Format("lf_amp: {0:X4}", lf_amp));
             //Debug.Log(string.Format("hf_amp: {0:X2}", hf_amp));
-            Debug.Log(string.Format("l_f: {0:D}", l_f));
-            Debug.Log(string.Format("hf: {0:X4}", hf));
-            Debug.Log(string.Format("lf: {0:X2}", lf));
+            //Debug.Log(string.Format("l_f: {0:F}", l_f));
+            //Debug.Log(string.Format("hf: {0:X4}", hf));
+            //Debug.Log(string.Format("lf: {0:X2}", lf));
             return rumble_data;
         }
     }
@@ -164,7 +164,7 @@ public class Joycon
         IMU,
         RUMBLE,
     };
-    public DebugType debug_type = DebugType.RUMBLE;
+    public DebugType debug_type = DebugType.COMMS;
     private byte global_count = 0;
     private string debug_str;
 
@@ -297,10 +297,10 @@ public class Joycon
     private byte ts_en;
     private byte ts_de;
     private System.DateTime ts_prev;
-    private int ReceiveRaw(bool block = false)
+    private int ReceiveRaw()
     {
         if (handle == IntPtr.Zero) return -2;
-        HIDapi.hid_set_nonblocking(handle, block ? 0 : 1);
+        HIDapi.hid_set_nonblocking(handle, 0);
         byte[] raw_buf = new byte[report_len];
         int ret = HIDapi.hid_read(handle, raw_buf, new UIntPtr(report_len));
         if (ret > 0)
@@ -314,19 +314,19 @@ public class Joycon
                 DebugPrint(string.Format("Duplicate timestamp enqueued. TS: {0:X2}", ts_en), DebugType.THREADING);
             }
             ts_en = raw_buf[1];
-            DebugPrint(string.Format("Enqueue. Blocking? {0:b}. Bytes read: {1:D}. Timestamp: {2:X2}", block, ret, raw_buf[1]), DebugType.THREADING);
+            DebugPrint(string.Format("Enqueue. Bytes read: {0:D}. Timestamp: {1:X2}", ret, raw_buf[1]), DebugType.THREADING);
         }
         return ret;
     }
     private Thread PollThreadObj;
-    private Thread RumbleThreadObj;
     private void Poll()
     {
         bool recvd = false;
         int attempts = 0;
         while (!stop_polling)
         {
-            int a = ReceiveRaw(recvd);
+            SendRumble(rumble_obj.GetData());
+            int a = ReceiveRaw();
 
             if (a > 0)
             {
@@ -487,8 +487,6 @@ public class Joycon
     {
         PollThreadObj = new Thread(new ThreadStart(Poll));
         PollThreadObj.Start();
-        RumbleThreadObj = new Thread(new ThreadStart(RumbleListener));
-        RumbleThreadObj.Start();
     }
     public void Recenter()
     {
@@ -520,12 +518,6 @@ public class Joycon
     {
         rumble_obj = new Rumble(low_freq, high_freq, amp);
     }
-	private void RumbleListener(){
-		while (!stop_polling) {
-            SendRumble(rumble_obj.GetData());
-            Thread.Sleep(20);
-        }
-	}
     private void SendRumble(byte[] buf)
     {
         byte[] buf_ = new byte[report_len];

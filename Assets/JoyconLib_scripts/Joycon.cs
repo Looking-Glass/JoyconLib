@@ -70,6 +70,9 @@ public class Joycon
     public Vector3 gyr_g;
     private Vector3 gyr_est;
     private float Axz, Ayz;
+    private float yaw;
+    private float[] yaw_avg = new float[15];
+    private int yaw_ind = 0;
 
     private Vector3 pos;
     private float filterweight;
@@ -226,9 +229,9 @@ public class Joycon
             case 1:
                 return acc_g;
             case 2:
-                return gyr_est.normalized;
+                return gyr_est;
             default:
-                return pos;
+                return new Vector3(pos.x, pos.y, yaw);
         }
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
@@ -455,13 +458,13 @@ public class Joycon
         for (int n = 0; n < 3; ++n)
         {
             // first value not useful
-            gyr_r[2] = 0;//(Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+            gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
             gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
-            gyr_r[0] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+            gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
 
-            acc_r[2] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+            acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
             acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
-            acc_r[0] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+            acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
             gyr_r[1] *= -1;
 
@@ -476,6 +479,7 @@ public class Joycon
             if (first_imu_packet)
             {
                 pos = acc_g;
+                yaw = 0;// Mathf.Atan2(pos.x, pos.y);
                 first_imu_packet = false;
             }
             else
@@ -487,14 +491,29 @@ public class Joycon
                 else
                 {
                     // Euler: Ayz, Axz. In radians
-                    Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.x * .005f * dt;
-                    Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.y * .005f * dt;
+                    Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.y * .005f * dt;
+                    Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.x * .005f * dt;
+                    yaw_avg[yaw_ind] = gyr_g.z;
+                    yaw_ind = (++yaw_ind) % yaw_avg.Length;
+                    float sum = 0;
+                    int i = 0;
+                    for (; i < yaw_avg.Length; ++i)
+                    {
+                        if (yaw_avg[i] != 0)
+                        {
+                            sum += yaw_avg[i];
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    yaw += sum / i * .005f * dt;
 
                     int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
                     gyr_est.x = Mathf.Sin(Axz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Tan(Ayz), 2) * Mathf.Pow(Mathf.Cos(Axz), 2));
                     gyr_est.y = Mathf.Sin(Ayz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(Ayz), 2) * Mathf.Pow(Mathf.Tan(Axz), 2));
                     gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
-                    gyr_est = gyr_est.normalized;
                 }
             }
             pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);

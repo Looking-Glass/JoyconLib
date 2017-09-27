@@ -4,40 +4,26 @@ using UnityEngine;
 
 public class JoyconDemo : MonoBehaviour {
     private Joycon j;
-    private LineRenderer lr;
-    private Transform line, sphere;
+    private Transform t;
     public int sensor_ind;
 	public Vector3 gyr_g;
 	public Vector3 acc_g;
     public float amp;
     public bool lock_rumble;
     public float r;
-    public int t;
     public float low_freq = 160;
     public float high_freq = 320;
     // Use this for initialization
     void Start ()
     {
         j = JoyconManager.Instance.j;
-        line = gameObject.transform.GetChild(0);
-        sphere = gameObject.transform.GetChild(1);
-        lr = line.GetComponent<LineRenderer>();
-        float alpha = 1.0f;
-        Gradient gradient = new Gradient();
-        gradient.SetKeys(
-            new GradientColorKey[] { new GradientColorKey(Color.blue, 0.0f), new GradientColorKey(Color.red, 1.0f) },
-            new GradientAlphaKey[] { new GradientAlphaKey(alpha, 0.0f), new GradientAlphaKey(alpha, 1.0f) }
-            );
-        lr.colorGradient = gradient;
-        lr.positionCount = 2;
+        t = gameObject.transform;
     }
 
     // Update is called once per frame
     void Update () {
         if (j != null && j.state > Joycon.state_.ATTACHED)
         {
-            Vector3 p = j.GetVector(sensor_ind);
-			p = Quaternion.Euler (new Vector3(-90, 0, 90)) * p;
             if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {
                 j.Recenter();
@@ -71,10 +57,11 @@ public class JoyconDemo : MonoBehaviour {
             j.SetRumble(low_freq, high_freq, r);
             gyr_g = j.gyr_g;
 			acc_g = j.acc_g;
-            lr.SetPosition(0, -1f * p);
-            lr.SetPosition(1, p);
-            sphere.position = transform.position + p;
-        }        
+
+            Vector3 p = j.GetVector()*90;
+            t.eulerAngles = new Vector3(p.x, p.z, -p.y);
+
+        }
     }
 
     private void OnDrawGizmos()

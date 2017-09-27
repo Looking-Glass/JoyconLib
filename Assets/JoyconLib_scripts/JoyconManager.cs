@@ -5,11 +5,11 @@ using System;
 public class JoyconManager: MonoBehaviour
 {
     public Joycon j;
-	public float[] stick;
+    public float[] stick;
     static JoyconManager instance;
     public static JoyconManager Instance
     {
-       get { return instance; }
+        get { return instance; }
     }
     void Awake()
     {

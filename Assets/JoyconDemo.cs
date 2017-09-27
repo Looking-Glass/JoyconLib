@@ -62,6 +62,10 @@ public class JoyconDemo : MonoBehaviour {
             {
                 low_freq -= 20f;
             }
+            if (j.GetButtonDown(Joycon.Button.SL))
+            {
+                j.SetRumble(160, 320, 0.3f, 100);
+            }
             if (!lock_rumble) r = Mathf.Abs(j.GetStick()[1])*0.75f;
 
             j.SetRumble(low_freq, high_freq, r);

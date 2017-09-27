@@ -95,12 +95,35 @@ public class Joycon
     };
     private struct Rumble
     {
-        public float h_f, amp, l_f;
-        public Rumble(float low_freq, float high_freq, float amplitude)
+        private float h_f, amp, l_f;
+        public float t;
+        public bool timed_rumble;
+        
+        public void set_vals(float low_freq, float high_freq, float amplitude, int time=0)
         {
             h_f = high_freq;
             amp = amplitude;
             l_f = low_freq;
+            timed_rumble = false;
+            t = 0;
+            if (time != 0)
+            {
+                t = time / 1000f;
+                timed_rumble = true;
+            }
+        }
+        public Rumble(float low_freq, float high_freq, float amplitude, int time = 0)
+        {
+            h_f = high_freq;
+            amp = amplitude;
+            l_f = low_freq;
+            timed_rumble = false;
+            t = 0;
+            if (time != 0)
+            {
+                t = time / 1000f;
+                timed_rumble = true;
+            }
         }
         private float clamp(float x, float min, float max)
         {
@@ -321,18 +344,17 @@ public class Joycon
     private Thread PollThreadObj;
     private void Poll()
     {
-        bool recvd = false;
         int attempts = 0;
-        while (!stop_polling)
+        while (!stop_polling & state > state_.NO_JOYCONS)
         {
             SendRumble(rumble_obj.GetData());
+            
             int a = ReceiveRaw();
 
             if (a > 0)
             {
                 state = state_.IMU_DATA_OK;
                 attempts = 0;
-                recvd = true;
             }
             else if (attempts > 1000)
             {
@@ -514,9 +536,23 @@ public class Joycon
         }
         return s;
     }
-    public void SetRumble(float low_freq, float high_freq, float amp)
+    public int SetRumble(float low_freq, float high_freq, float amp, int time=0)
     {
-        rumble_obj = new Rumble(low_freq, high_freq, amp);
+        if (rumble_obj.timed_rumble == false)
+        {
+            rumble_obj = new Rumble(low_freq, high_freq, amp, time);
+            return 0;
+        }
+        else
+        {
+            rumble_obj.t -= Time.deltaTime;
+            if (rumble_obj.t < 0)
+            {
+                rumble_obj.set_vals(160, 320, 0, 0);
+                return 0;
+            }
+        }
+        return -1;
     }
     private void SendRumble(byte[] buf)
     {

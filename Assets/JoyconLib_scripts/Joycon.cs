@@ -475,18 +475,17 @@ public class Joycon
                     max[i] = acc_g[i];
             }
 
-            gyr_r[1] *= -1;
-
             acc_g = acc_g.normalized;
             if (first_imu_packet)
             {
                 pos = acc_g;
-                yaw = 0;// Mathf.Atan2(pos.x, pos.y);
+                yaw = 0;
                 first_imu_packet = false;
             }
             else
             {
-                if (Mathf.Abs(pos.z) < 0.1f)
+                yaw += ((gyr_g.z * Mathf.Cos(pos.y * Mathf.PI/2) - gyr_g.y * Mathf.Sin(pos.y * Mathf.PI/2)) * 0.005f * dt);
+                if (Mathf.Abs(pos.x) < 0.1f)
                 {
                     gyr_est = pos;
                 }
@@ -495,16 +494,16 @@ public class Joycon
                     // Euler: Ayz, Axz. In radians
                     Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.y * .005f * dt;
                     Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.x * .005f * dt;
-                    yaw += (gyr_g.z + gyr_z_prev) / 2 * 0.005f * dt;
-                    gyr_z_prev = gyr_g.z;
 
                     int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
                     gyr_est.x = Mathf.Sin(Axz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Tan(Ayz), 2) * Mathf.Pow(Mathf.Cos(Axz), 2));
                     gyr_est.y = Mathf.Sin(Ayz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(Ayz), 2) * Mathf.Pow(Mathf.Tan(Axz), 2));
                     gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
+
+                    gyr_est = gyr_est.normalized;
                 }
+                pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
             }
-            pos = (acc_g + gyr_est * filterweight) / (1 + filterweight);
             pos = pos.normalized;
 
             dt = 1;

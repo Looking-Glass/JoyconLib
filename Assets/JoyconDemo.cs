@@ -58,7 +58,7 @@ public class JoyconDemo : MonoBehaviour {
             gyr_g = j.gyr_g;
 			acc_g = j.acc_g;
 
-            Vector3 p = j.GetVector()*90;
+            Vector3 p = j.GetVector(sensor_ind)*90;
             t.eulerAngles = new Vector3(p.x, p.z, -p.y);
 
         }

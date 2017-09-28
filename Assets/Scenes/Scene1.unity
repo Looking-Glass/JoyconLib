@@ -179,7 +179,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9b5c154d920d754db92ed07a735dbc4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sensor_ind: 1
+  sensor_ind: 0
   gyr_g: {x: 0, y: 0, z: 0}
   acc_g: {x: 0, y: 0, z: 0}
   amp: 0

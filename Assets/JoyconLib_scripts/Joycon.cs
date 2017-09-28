@@ -111,8 +111,8 @@ public class Joycon
         private float h_f, amp, l_f;
         public float t;
         public bool timed_rumble;
-        
-        public void set_vals(float low_freq, float high_freq, float amplitude, int time=0)
+
+        public void set_vals(float low_freq, float high_freq, float amplitude, int time = 0)
         {
             h_f = high_freq;
             amp = amplitude;
@@ -151,7 +151,7 @@ public class Joycon
             l_f = clamp(l_f, 40.875885f, 626.286133f);
             amp = clamp(amp, 0.0f, 1.0f);
             h_f = clamp(h_f, 81.75177f, 1252.572266f);
-            UInt16 hf = (UInt16)((Mathf.Round(32f * Mathf.Log(h_f * 0.1f, 2)) - 0x60)*4);
+            UInt16 hf = (UInt16)((Mathf.Round(32f * Mathf.Log(h_f * 0.1f, 2)) - 0x60) * 4);
             byte lf = (byte)(Mathf.Round(32f * Mathf.Log(l_f * 0.1f, 2)) - 0x40);
             byte hf_amp;
             if (amp == 0) hf_amp = 0;
@@ -159,7 +159,7 @@ public class Joycon
             else if (amp < 0.23) hf_amp = (byte)(((Mathf.Log(amp * 1000, 2) * 32) - 0x60) - 0x5c);
             else hf_amp = (byte)((((Mathf.Log(amp * 1000, 2) * 32) - 0x60) * 2) - 0xf6);
 
-            UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp)*.5);
+            UInt16 lf_amp = (UInt16)(Mathf.Round(hf_amp) * .5);
             byte parity = (byte)(lf_amp % 2);
             if (parity > 0)
             {
@@ -191,7 +191,7 @@ public class Joycon
     }
     private Queue<Report> reports = new Queue<Report>();
     private Rumble rumble_obj;
-    
+
     private byte global_count = 0;
     private string debug_str;
 
@@ -232,7 +232,7 @@ public class Joycon
             case 2:
                 return gyr_est;
             default:
-                return new Vector3(pos.x, pos.y, yaw);
+                return (new Vector3(pos.x, yaw, -pos.y)) * 90;
         }
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
@@ -352,7 +352,7 @@ public class Joycon
         while (!stop_polling & state > state_.NO_JOYCONS)
         {
             SendRumble(rumble_obj.GetData());
-            
+
             int a = ReceiveRaw();
 
             if (a > 0)
@@ -415,9 +415,12 @@ public class Joycon
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
         stick = CenterSticks(stick_precal);
-        lock (buttons) {
-            lock (down_) {
-                for (int i = 0; i < buttons.Length; ++i) {
+        lock (buttons)
+        {
+            lock (down_)
+            {
+                for (int i = 0; i < buttons.Length; ++i)
+                {
                     down_[i] = buttons[i];
                 }
             }
@@ -433,9 +436,12 @@ public class Joycon
             buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
             buttons[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
             buttons[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
-            lock (buttons_up) {
-                lock (buttons_down) {
-                    for (int i = 0; i < buttons.Length; ++i) {
+            lock (buttons_up)
+            {
+                lock (buttons_down)
+                {
+                    for (int i = 0; i < buttons.Length; ++i)
+                    {
                         buttons_up[i] = (down_[i] & !buttons[i]);
                         buttons_down[i] = (!down_[i] & buttons[i]);
                     }
@@ -470,7 +476,7 @@ public class Joycon
             for (int i = 0; i < 3; ++i)
             {
                 acc_g[i] = acc_r[i] * 0.00025f;
-                gyr_g[i] = (gyr_r[i]-gyr_neutral[i]) * 0.00106528069f;
+                gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00106528069f;
                 if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
                     max[i] = acc_g[i];
             }
@@ -484,7 +490,7 @@ public class Joycon
             }
             else
             {
-                yaw += ((gyr_g.z * Mathf.Cos(pos.y * Mathf.PI/2) - gyr_g.y * Mathf.Sin(pos.y * Mathf.PI/2)) * 0.005f * dt);
+                yaw += ((gyr_g.z * Mathf.Cos(pos.y * Mathf.PI / 2) - gyr_g.y * Mathf.Sin(pos.y * Mathf.PI / 2)) * 0.005f * dt);
                 if (Mathf.Abs(pos.x) < 0.1f)
                 {
                     gyr_est = pos;
@@ -542,7 +548,7 @@ public class Joycon
         }
         return s;
     }
-    public int SetRumble(float low_freq, float high_freq, float amp, int time=0)
+    public int SetRumble(float low_freq, float high_freq, float amp, int time = 0)
     {
         if (rumble_obj.timed_rumble == false)
         {
@@ -589,34 +595,34 @@ public class Joycon
         else if (print) { PrintArray(response, DebugType.COMMS, report_len - 1, 1, "Response ID 0x" + string.Format("{0:X2}", response[0]) + ". Data: 0x{0:S}"); }
         return response;
     }
-	private void dump_calibration_data()
-	{
-		byte[] buf_ = ReadSPI(0x80, (isleft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
-		bool found = false;
-		for (int i = 0; i < 9; ++i)
-		{
-			if (buf_[i] != 0xff)
-			{
-				Debug.Log("Using user stick calibration data.");
-				found = true;
-				break;
-			}
-		}
-		if (!found)
-		{
-			Debug.Log("Using factory stick calibration data.");
-			buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
-		}
-		stick_cal[isleft? 0 : 2] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]); // X Axis Max above center
-		stick_cal[isleft? 1 : 3] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));  // Y Axis Max above center
-		stick_cal[isleft? 2 : 4] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]); // X Axis Center
-		stick_cal[isleft? 3 : 5] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));  // Y Axis Center
-		stick_cal[isleft? 4 : 0] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]); // X Axis Min below center
-		stick_cal[isleft? 5 : 1] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));  // Y Axis Min below center
+    private void dump_calibration_data()
+    {
+        byte[] buf_ = ReadSPI(0x80, (isleft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
+        bool found = false;
+        for (int i = 0; i < 9; ++i)
+        {
+            if (buf_[i] != 0xff)
+            {
+                Debug.Log("Using user stick calibration data.");
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            Debug.Log("Using factory stick calibration data.");
+            buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
+        }
+        stick_cal[isleft ? 0 : 2] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]); // X Axis Max above center
+        stick_cal[isleft ? 1 : 3] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));  // Y Axis Max above center
+        stick_cal[isleft ? 2 : 4] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]); // X Axis Center
+        stick_cal[isleft ? 3 : 5] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));  // Y Axis Center
+        stick_cal[isleft ? 4 : 0] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]); // X Axis Min below center
+        stick_cal[isleft ? 5 : 1] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));  // Y Axis Min below center
 
-		PrintArray (stick_cal, len: 6, start: 0, format: "Stick calibration data: {0:S}");
+        PrintArray(stick_cal, len: 6, start: 0, format: "Stick calibration data: {0:S}");
 
-		buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
+        buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
         deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
         buf_ = ReadSPI(0x60, 0x28, 10
             );

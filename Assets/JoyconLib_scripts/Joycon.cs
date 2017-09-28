@@ -9,6 +9,16 @@ using UnityEngine;
 
 public class Joycon
 {
+    public enum DebugType : int
+    {
+        NONE,
+        ALL,
+        COMMS,
+        THREADING,
+        IMU,
+        RUMBLE,
+    };
+    public DebugType debug_type = DebugType.IMU;
     public bool isleft;
     public enum state_ : uint
     {
@@ -67,12 +77,12 @@ public class Joycon
     public Vector3 acc_g;
 
     private Int16[] gyr_r = { 0, 0, 0 };
+    private Int16[] gyr_neutral = { 0, 0, 0 };
     public Vector3 gyr_g;
     private Vector3 gyr_est;
     private float Axz, Ayz;
     private float yaw;
-    private float[] yaw_avg = new float[15];
-    private int yaw_ind = 0;
+    private float gyr_z_prev;
 
     private Vector3 pos;
     private float filterweight;
@@ -181,16 +191,7 @@ public class Joycon
     }
     private Queue<Report> reports = new Queue<Report>();
     private Rumble rumble_obj;
-    public enum DebugType : int
-    {
-        NONE,
-        ALL,
-        COMMS,
-        THREADING,
-        IMU,
-        RUMBLE,
-    };
-    public DebugType debug_type = DebugType.COMMS;
+    
     private byte global_count = 0;
     private string debug_str;
 
@@ -461,20 +462,21 @@ public class Joycon
             gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
             gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
             gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
-
             acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
             acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
             acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
-            gyr_r[1] *= -1;
 
             for (int i = 0; i < 3; ++i)
             {
                 acc_g[i] = acc_r[i] * 0.00025f;
-                gyr_g[i] = gyr_r[i] * 0.00106528069f;
+                gyr_g[i] = (gyr_r[i]-gyr_neutral[i]) * 0.00106528069f;
                 if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
                     max[i] = acc_g[i];
             }
+
+            gyr_r[1] *= -1;
+
             acc_g = acc_g.normalized;
             if (first_imu_packet)
             {
@@ -493,22 +495,8 @@ public class Joycon
                     // Euler: Ayz, Axz. In radians
                     Ayz = Mathf.Atan2(pos.y, pos.z) + gyr_g.y * .005f * dt;
                     Axz = Mathf.Atan2(pos.x, pos.z) + gyr_g.x * .005f * dt;
-                    yaw_avg[yaw_ind] = gyr_g.z;
-                    yaw_ind = (++yaw_ind) % yaw_avg.Length;
-                    float sum = 0;
-                    int i = 0;
-                    for (; i < yaw_avg.Length; ++i)
-                    {
-                        if (yaw_avg[i] != 0)
-                        {
-                            sum += yaw_avg[i];
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                    yaw += sum / i * .005f * dt;
+                    yaw += (gyr_g.z + gyr_z_prev) / 2 * 0.005f * dt;
+                    gyr_z_prev = gyr_g.z;
 
                     int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
                     gyr_est.x = Mathf.Sin(Axz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Tan(Ayz), 2) * Mathf.Pow(Mathf.Cos(Axz), 2));
@@ -631,7 +619,15 @@ public class Joycon
 
 		buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
         deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
-	}
+        buf_ = ReadSPI(0x60, 0x28, 10
+            );
+        gyr_neutral[0] = (Int16)(buf_[4] | ((buf_[5] << 8) & 0xff00));
+        gyr_neutral[1] = (Int16)(buf_[6] | ((buf_[7] << 8) & 0xff00));
+        gyr_neutral[2] = (Int16)(buf_[8] | ((buf_[9] << 8) & 0xff00));
+
+        PrintArray(gyr_neutral, len: 3, d: DebugType.IMU, format: "Gyro neutral position: {0:S}");
+
+    }
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {
         byte[] buf = { addr2, addr1, 0x00, 0x00, (byte)len };

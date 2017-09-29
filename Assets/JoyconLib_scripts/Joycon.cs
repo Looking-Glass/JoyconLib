@@ -228,11 +228,13 @@ public class Joycon
         switch (type)
         {
             case 1:
-                return acc_g;
+                return (new Vector3(acc_g.x, acc_g.z, -acc_g.y)) * 90f;
             case 2:
-                return gyr_est;
+                return (new Vector3(gyr_est.x, gyr_est.z, -gyr_est.y)) * 90f;
+            case 3:
+                return (new Vector3(pos.x, pos.z, -pos.y)) * 90f;
             default:
-                return (new Vector3(pos.x, yaw, -pos.y)) * 90;
+                return (new Vector3(pos.x, yaw, -pos.y)) * 90f;
         }
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
@@ -479,6 +481,14 @@ public class Joycon
                 gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00106528069f;
                 if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
                     max[i] = acc_g[i];
+            }
+
+            if (isleft)
+            {
+                acc_g.z *= -1;
+                acc_g.y *= -1;
+                gyr_g.y *= -1;
+                gyr_g.z *= -1;
             }
 
             acc_g = acc_g.normalized;

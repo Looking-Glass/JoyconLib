@@ -354,7 +354,6 @@ public class Joycon
         while (!stop_polling & state > state_.NO_JOYCONS)
         {
             SendRumble(rumble_obj.GetData());
-
             int a = ReceiveRaw();
 
             if (a > 0)
@@ -404,6 +403,13 @@ public class Joycon
             }
 
             ProcessButtonsAndStick(report_buf);
+			if (rumble_obj.timed_rumble) {
+				if (rumble_obj.t < 0) {
+					rumble_obj.set_vals (160, 320, 0, 0);
+				} else {
+					rumble_obj.t -= Time.deltaTime;
+				}
+			}
         }
     }
     private int ProcessButtonsAndStick(byte[] report_buf)
@@ -558,23 +564,12 @@ public class Joycon
         }
         return s;
     }
-    public int SetRumble(float low_freq, float high_freq, float amp, int time = 0)
+    public void SetRumble(float low_freq, float high_freq, float amp, int time = 0)
     {
-        if (rumble_obj.timed_rumble == false)
+		if (rumble_obj.timed_rumble == false || rumble_obj.t < 0)
         {
             rumble_obj = new Rumble(low_freq, high_freq, amp, time);
-            return 0;
         }
-        else
-        {
-            rumble_obj.t -= Time.deltaTime;
-            if (rumble_obj.t < 0)
-            {
-                rumble_obj.set_vals(160, 320, 0, 0);
-                return 0;
-            }
-        }
-        return -1;
     }
     private void SendRumble(byte[] buf)
     {

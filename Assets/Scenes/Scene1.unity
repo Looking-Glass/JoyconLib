@@ -179,14 +179,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 475ab625ec280bf409835dd3929597de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sensor_ind: 0
-  gyr_g: {x: 0, y: 0, z: 0}
-  acc_g: {x: 0, y: 0, z: 0}
-  amp: 0
-  lock_rumble: 0
-  r: 0
-  low_freq: 160
-  high_freq: 320
 --- !u!23 &798593170
 MeshRenderer:
   m_ObjectHideFlags: 0

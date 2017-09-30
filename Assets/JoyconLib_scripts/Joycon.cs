@@ -18,7 +18,7 @@ public class Joycon
         IMU,
         RUMBLE,
     };
-    public DebugType debug_type = DebugType.IMU;
+	public DebugType debug_type = DebugType.COMMS;
     public bool isleft;
     public enum state_ : uint
     {

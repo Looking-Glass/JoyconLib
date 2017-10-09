@@ -234,7 +234,7 @@ public class Joycon
             case 3:
                 return (new Vector3(pos.x, pos.z, -pos.y)) * 90f;
             default:
-                return (new Vector3(pos.x, yaw, -pos.y)) * 90f;
+				return (new Vector3(pos.x * (isleft ? -1f : 1f), yaw, -pos.y * (isleft ? -1f : 1f))) * 90f;
         }
     }
     public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)

@@ -19,7 +19,7 @@ public class Joycon
         RUMBLE,
     };
 	public DebugType debug_type = DebugType.COMMS;
-    public bool isleft;
+    public bool isLeft;
     public enum state_ : uint
     {
         NOT_ATTACHED,
@@ -51,7 +51,7 @@ public class Joycon
     private bool[] buttons = new bool[13];
     private bool[] down_ = new bool[13];
 
-    public float[] stick = { 0, 0 };
+    private float[] stick = { 0, 0 };
 
     private IntPtr handle;
 
@@ -74,16 +74,16 @@ public class Joycon
     private bool first_imu_packet = true;
     private bool imu_enabled = false;
     private Int16[] acc_r = { 0, 0, 0 };
-    public Vector3 acc_g;
+    private Vector3 acc_g;
 
     private Int16[] gyr_r = { 0, 0, 0 };
     private Int16[] gyr_neutral = { 0, 0, 0 };
-    public Vector3 gyr_g;
+    private Vector3 gyr_g;
     private Vector3 gyr_est;
     private float Axz, Ayz;
     private float yaw;
     private float gyr_z_prev;
-
+    private bool do_localize;
     private Vector3 pos;
     private float filterweight;
 
@@ -223,8 +223,17 @@ public class Joycon
     {
         return stick;
     }
+    public Vector3 GetGyro()
+    {
+        return gyr_g;
+    }
+    public Vector3 GetAccel()
+    {
+        return acc_g;
+    }
     public Vector3 GetVector(int type = 0)
     {
+        if (!do_localize) return new Vector3(0, 0, 0);
         switch (type)
         {
             case 1:
@@ -234,11 +243,13 @@ public class Joycon
             case 3:
                 return (new Vector3(pos.x, pos.z, -pos.y)) * 90f;
             default:
-				return (new Vector3(pos.x * (isleft ? -1f : 1f), yaw, -pos.y * (isleft ? -1f : 1f))) * 90f;
+				return (new Vector3(pos.x * (isLeft ? -1f : 1f), yaw, -pos.y * (isLeft ? -1f : 1f))) * 90f;
         }
     }
-    public int Attach(byte leds = 0x0, bool imu = true, float alpha = 1f)
+    public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 10f, bool localize = false)
     {
+        imu_enabled = imu;
+        do_localize = localize;
         filterweight = alpha;
         state = state_.NOT_ATTACHED;
         HIDapi.hid_init();
@@ -257,7 +268,7 @@ public class Joycon
         hid_device_info enumerate = (hid_device_info)Marshal.PtrToStructure(ptr, typeof(hid_device_info));
         if (enumerate.product_id == product_l)
         {
-            isleft = true;
+            isLeft = true;
             DebugPrint("Left Joy-Con connected.", DebugType.ALL);
         }
         else if (enumerate.product_id == product_r)
@@ -287,19 +298,13 @@ public class Joycon
         Subcommand(0x1, a, 1);
         a[0] = 0x03;
         Subcommand(0x1, a, 1);
-        a[0] = leds;
+        a[0] = leds_;
         Subcommand(0x30, a, 1);
-        imu_enabled = imu;
-        Subcommand(0x40, new byte[] { 0x1 }, 1, true);
+        Subcommand(0x40, new byte[] { (imu_enabled ? (byte)0x1 : (byte)0x0) }, 1, true);
         Subcommand(0x3, new byte[] { 0x30 }, 1, true);
         Subcommand(0x48, new byte[] { 0x1 }, 1, true);
         DebugPrint("Done with init.", DebugType.COMMS);
         return 0;
-    }
-    public string GetDebugText()
-    {
-        if (!buttons[(int)Button.DPAD_DOWN]) debug_str = "x:" + acc_g[0] + "\ny:" + acc_g[1] + "\nz:" + acc_g[2] + "\n";
-        return debug_str;
     }
     public void SetFilterCoeff(float a)
     {
@@ -391,7 +396,17 @@ public class Joycon
                     rep = reports.Dequeue();
                     report_buf = rep.GetBuffer();
                 }
-                ProcessIMU(report_buf);
+                if (imu_enabled)
+                {
+                    if (do_localize)
+                    {
+                        ProcessIMU(report_buf);
+                    }
+                    else
+                    {
+                        ExtractIMUValues(report_buf, 0);
+                    }
+                }
                 if (ts_de == report_buf[1])
                 {
                     DebugPrint(string.Format("Duplicate timestamp dequeued. TS: {0:X2}", ts_de), DebugType.THREADING);
@@ -401,7 +416,6 @@ public class Joycon
                     reports.Count, report_buf[0], report_buf[1], System.DateTime.Now.Subtract(rep.GetTime()), rep.GetTime().Subtract(ts_prev)), DebugType.THREADING);
                 ts_prev = rep.GetTime();
             }
-
             ProcessButtonsAndStick(report_buf);
 			if (rumble_obj.timed_rumble) {
 				if (rumble_obj.t < 0) {
@@ -416,9 +430,9 @@ public class Joycon
     {
         if (report_buf[0] == 0x00) return -1;
 
-        stick_raw[0] = report_buf[6 + (isleft ? 0 : 3)];
-        stick_raw[1] = report_buf[7 + (isleft ? 0 : 3)];
-        stick_raw[2] = report_buf[8 + (isleft ? 0 : 3)];
+        stick_raw[0] = report_buf[6 + (isLeft ? 0 : 3)];
+        stick_raw[1] = report_buf[7 + (isLeft ? 0 : 3)];
+        stick_raw[2] = report_buf[8 + (isLeft ? 0 : 3)];
 
         stick_precal[0] = (UInt16)(stick_raw[0] | ((stick_raw[1] & 0xf) << 8));
         stick_precal[1] = (UInt16)((stick_raw[1] >> 4) | (stick_raw[2] << 4));
@@ -432,18 +446,18 @@ public class Joycon
                     down_[i] = buttons[i];
                 }
             }
-            buttons[(int)Button.DPAD_DOWN] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x01 : 0x04)) != 0;
-            buttons[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x04 : 0x08)) != 0;
-            buttons[(int)Button.DPAD_UP] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x02 : 0x02)) != 0;
-            buttons[(int)Button.DPAD_LEFT] = (report_buf[3 + (isleft ? 2 : 0)] & (isleft ? 0x08 : 0x01)) != 0;
+            buttons[(int)Button.DPAD_DOWN] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x01 : 0x04)) != 0;
+            buttons[(int)Button.DPAD_RIGHT] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x04 : 0x08)) != 0;
+            buttons[(int)Button.DPAD_UP] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x02 : 0x02)) != 0;
+            buttons[(int)Button.DPAD_LEFT] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x08 : 0x01)) != 0;
             buttons[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
             buttons[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
             buttons[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
-            buttons[(int)Button.STICK] = ((report_buf[4] & (isleft ? 0x08 : 0x04)) != 0);
-            buttons[(int)Button.SHOULDER_1] = (report_buf[3 + (isleft ? 2 : 0)] & 0x40) != 0;
-            buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isleft ? 2 : 0)] & 0x80) != 0;
-            buttons[(int)Button.SR] = (report_buf[3 + (isleft ? 2 : 0)] & 0x10) != 0;
-            buttons[(int)Button.SL] = (report_buf[3 + (isleft ? 2 : 0)] & 0x20) != 0;
+            buttons[(int)Button.STICK] = ((report_buf[4] & (isLeft ? 0x08 : 0x04)) != 0);
+            buttons[(int)Button.SHOULDER_1] = (report_buf[3 + (isLeft ? 2 : 0)] & 0x40) != 0;
+            buttons[(int)Button.SHOULDER_2] = (report_buf[3 + (isLeft ? 2 : 0)] & 0x80) != 0;
+            buttons[(int)Button.SR] = (report_buf[3 + (isLeft ? 2 : 0)] & 0x10) != 0;
+            buttons[(int)Button.SL] = (report_buf[3 + (isLeft ? 2 : 0)] & 0x20) != 0;
             lock (buttons_up)
             {
                 lock (buttons_down)
@@ -457,6 +471,22 @@ public class Joycon
             }
         }
         return 0;
+    }
+    private void ExtractIMUValues(byte[] report_buf, int n = 0)
+    {
+        gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
+        gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
+        gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
+        acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
+        acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
+        acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
+        for (int i = 0; i < 3; ++i)
+        {
+            acc_g[i] = acc_r[i] * 0.00025f;
+            gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00106528069f;
+            if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
+                max[i] = acc_g[i];
+        }
     }
     private int ProcessIMU(byte[] report_buf)
     {
@@ -473,23 +503,10 @@ public class Joycon
         for (int n = 0; n < 3; ++n)
         {
             // first value not useful
-            gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
-            gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
-            gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
-            acc_r[0] = (Int16)(report_buf[13 + n * 12] | ((report_buf[14 + n * 12] << 8) & 0xff00));
-            acc_r[1] = (Int16)(report_buf[15 + n * 12] | ((report_buf[16 + n * 12] << 8) & 0xff00));
-            acc_r[2] = (Int16)(report_buf[17 + n * 12] | ((report_buf[18 + n * 12] << 8) & 0xff00));
 
+            ExtractIMUValues(report_buf, n);
 
-            for (int i = 0; i < 3; ++i)
-            {
-                acc_g[i] = acc_r[i] * 0.00025f;
-                gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00106528069f;
-                if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
-                    max[i] = acc_g[i];
-            }
-
-            if (isleft)
+            if (isLeft)
             {
                 acc_g.z *= -1;
                 acc_g.y *= -1;
@@ -535,8 +552,11 @@ public class Joycon
     }
     public void Begin()
     {
-        PollThreadObj = new Thread(new ThreadStart(Poll));
-        PollThreadObj.Start();
+        if (PollThreadObj == null)
+        {
+            PollThreadObj = new Thread(new ThreadStart(Poll));
+            PollThreadObj.Start();
+        }
     }
     public void Recenter()
     {
@@ -566,6 +586,7 @@ public class Joycon
     }
     public void SetRumble(float low_freq, float high_freq, float amp, int time = 0)
     {
+        if (j.state <= Joycon.state_.ATTACHED) return;
 		if (rumble_obj.timed_rumble == false || rumble_obj.t < 0)
         {
             rumble_obj = new Rumble(low_freq, high_freq, amp, time);
@@ -602,7 +623,7 @@ public class Joycon
     }
     private void dump_calibration_data()
     {
-        byte[] buf_ = ReadSPI(0x80, (isleft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
+        byte[] buf_ = ReadSPI(0x80, (isLeft ? (byte)0x12 : (byte)0x1d), 9); // get user calibration data if possible
         bool found = false;
         for (int i = 0; i < 9; ++i)
         {
@@ -616,18 +637,18 @@ public class Joycon
         if (!found)
         {
             Debug.Log("Using factory stick calibration data.");
-            buf_ = ReadSPI(0x60, (isleft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
+            buf_ = ReadSPI(0x60, (isLeft ? (byte)0x3d : (byte)0x46), 9); // get user calibration data if possible
         }
-        stick_cal[isleft ? 0 : 2] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]); // X Axis Max above center
-        stick_cal[isleft ? 1 : 3] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));  // Y Axis Max above center
-        stick_cal[isleft ? 2 : 4] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]); // X Axis Center
-        stick_cal[isleft ? 3 : 5] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));  // Y Axis Center
-        stick_cal[isleft ? 4 : 0] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]); // X Axis Min below center
-        stick_cal[isleft ? 5 : 1] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));  // Y Axis Min below center
+        stick_cal[isLeft ? 0 : 2] = (UInt16)((buf_[1] << 8) & 0xF00 | buf_[0]); // X Axis Max above center
+        stick_cal[isLeft ? 1 : 3] = (UInt16)((buf_[2] << 4) | (buf_[1] >> 4));  // Y Axis Max above center
+        stick_cal[isLeft ? 2 : 4] = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]); // X Axis Center
+        stick_cal[isLeft ? 3 : 5] = (UInt16)((buf_[5] << 4) | (buf_[4] >> 4));  // Y Axis Center
+        stick_cal[isLeft ? 4 : 0] = (UInt16)((buf_[7] << 8) & 0xF00 | buf_[6]); // X Axis Min below center
+        stick_cal[isLeft ? 5 : 1] = (UInt16)((buf_[8] << 4) | (buf_[7] >> 4));  // Y Axis Min below center
 
         PrintArray(stick_cal, len: 6, start: 0, format: "Stick calibration data: {0:S}");
 
-        buf_ = ReadSPI(0x60, (isleft ? (byte)0x86 : (byte)0x98), 16);
+        buf_ = ReadSPI(0x60, (isLeft ? (byte)0x86 : (byte)0x98), 16);
         deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
         buf_ = ReadSPI(0x60, 0x28, 10
             );
@@ -656,7 +677,7 @@ public class Joycon
         if (print) PrintArray(read_buf, DebugType.COMMS, len);
         return read_buf;
     }
-    public void PrintArray<T>(T[] arr, DebugType d = DebugType.NONE, uint len = 0, uint start = 0, string format = "{0:S}")
+    private void PrintArray<T>(T[] arr, DebugType d = DebugType.NONE, uint len = 0, uint start = 0, string format = "{0:S}")
     {
         if (d != debug_type && debug_type != DebugType.ALL) return;
         if (len == 0) len = (uint)arr.Length;

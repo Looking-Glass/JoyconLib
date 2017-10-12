@@ -6,11 +6,19 @@ public class JoyconDemo : MonoBehaviour {
 	
     private Joycon j;
 
+    // Values made available via Unity
+    public float[] stick;
+    public Vector3 gyro;
+    public Vector3 accel;
+    public Vector3 pos;
+
     void Start ()
     {
-		// get the public Joycon object attached to the JoyconManager in scene
-        j = JoyconManager.Instance.j;
-		
+        gyro = new Vector3(0, 0, 0);
+        accel = new Vector3(0, 0, 0);
+        pos = new Vector3(0, 0, 0);
+        // get the public Joycon object attached to the JoyconManager in scene
+        j = JoyconManager.Instance.j;	
     }
 
     // Update is called once per frame
@@ -22,7 +30,6 @@ public class JoyconDemo : MonoBehaviour {
             if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {
 				Debug.Log ("Shoulder button 2 pressed");
-
 				// GetStick returns a 2-element vector with x/y joystick components
 				Debug.Log(string.Format("Stick x: {0:N} Stick y: {1:N}",j.GetStick()[0],j.GetStick()[1]));
             
@@ -46,16 +53,27 @@ public class JoyconDemo : MonoBehaviour {
 				// Rumble for 200 milliseconds, with low frequency rumble at 160 Hz and high frequency rumble at 320 Hz. For more information check:
 				// https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/rumble_data_table.md
 
-				j.SetRumble (160, 320, 0.6f);
+				j.SetRumble (160, 320, 0.6f, 200);
 
 				// The last argument (time) in SetRumble is optional. Call it with three arguments to turn it on without telling it when to turn off.
+                // (Useful for dynamically changing rumble values.)
 				// Then call SetRumble(0,0,0) when you want to turn it off.
 			}
 
-			// GetVector returns a Vector3 of Joycon pitch, yaw, roll
-            Vector3 p = j.GetVector(0);
+            stick = j.GetStick();
 
-            gameObject.transform.eulerAngles = p;
+            // Gyro values: x, y, z axis values (in dps)
+            gyro = j.GetGyro();
+
+            // Accel values:  x, y, z axis values (in Gs)
+            accel = j.GetAccel();
+
+            // GetVector returns a Vector3 of Joycon pitch, yaw, roll.
+
+            // GetVector function is currently experimental! If you want to use raw IMU data without
+            // having to trawl through my crappy broken sensor fusion, make sure EnableLocalize is false in JoyconManager.
+            pos = j.GetVector();
+            gameObject.transform.eulerAngles = pos;
 
         }
     }

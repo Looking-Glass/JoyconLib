@@ -10,13 +10,13 @@ public class JoyconDemo : MonoBehaviour {
     public float[] stick;
     public Vector3 gyro;
     public Vector3 accel;
-    public Vector3 pos;
+    public Vector3 euler;
 
     void Start ()
     {
         gyro = new Vector3(0, 0, 0);
         accel = new Vector3(0, 0, 0);
-        pos = new Vector3(0, 0, 0);
+        euler = new Vector3(0, 0, 0);
         // get the public Joycon object attached to the JoyconManager in scene
         j = JoyconManager.Instance.j;	
     }
@@ -72,8 +72,8 @@ public class JoyconDemo : MonoBehaviour {
 
             // GetVector function is currently experimental! If you want to use raw IMU data without
             // having to trawl through my crappy broken sensor fusion, make sure EnableLocalize is false in JoyconManager.
-            pos = j.GetVector();
-            gameObject.transform.eulerAngles = pos;
+            euler = j.GetVector();
+            gameObject.transform.eulerAngles = euler;
 
         }
     }

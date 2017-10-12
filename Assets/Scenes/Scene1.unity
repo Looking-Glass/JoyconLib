@@ -135,7 +135,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 405bad29b2b998c408059182c189d9e9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  stick: []
+  EnableIMU: 0
+  EnableLocalize: 1
+  LEDs: 255
 --- !u!4 &175246628
 Transform:
   m_ObjectHideFlags: 0
@@ -176,9 +178,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 798593168}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 475ab625ec280bf409835dd3929597de, type: 3}
+  m_Script: {fileID: 11500000, guid: b9b5c154d920d754db92ed07a735dbc4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  stick: []
+  gyro: {x: 0, y: 0, z: 0}
+  accel: {x: 0, y: 0, z: 0}
+  pos: {x: 0, y: 0, z: 0}
 --- !u!23 &798593170
 MeshRenderer:
   m_ObjectHideFlags: 0

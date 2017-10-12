@@ -249,7 +249,7 @@ public class Joycon
     public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 10f, bool localize = false)
     {
         imu_enabled = imu;
-        do_localize = localize;
+        do_localize = localize & imu;
         filterweight = alpha;
         state = state_.NOT_ATTACHED;
         HIDapi.hid_init();
@@ -586,7 +586,7 @@ public class Joycon
     }
     public void SetRumble(float low_freq, float high_freq, float amp, int time = 0)
     {
-        if (j.state <= Joycon.state_.ATTACHED) return;
+        if (state <= Joycon.state_.ATTACHED) return;
 		if (rumble_obj.timed_rumble == false || rumble_obj.t < 0)
         {
             rumble_obj = new Rumble(low_freq, high_freq, amp, time);

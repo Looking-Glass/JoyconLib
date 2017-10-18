@@ -79,14 +79,9 @@ public class Joycon
     private Int16[] gyr_r = { 0, 0, 0 };
     private Int16[] gyr_neutral = { 0, 0, 0 };
     private Vector3 gyr_g;
-    private Vector3 gyr_est;
-    private float Axz, Ayz;
-    private float yaw;
-    private float gyr_z_prev;
-    private bool do_localize;
-    private Vector3 euler;
-    private float filterweight;
 
+	private bool do_localize;
+    private float filterweight;
     private const uint report_len = 49;
     private struct Report
     {
@@ -233,18 +228,9 @@ public class Joycon
     }
     public Vector3 GetVector(int type = 0)
     {
-        if (!do_localize) return new Vector3(0, 0, 0);
-        switch (type)
-        {
-            case 1:
-                return (new Vector3(acc_g.x, acc_g.z, -acc_g.y)) * 90f;
-            case 2:
-                return (new Vector3(gyr_est.x, gyr_est.z, -gyr_est.y)) * 90f;
-            case 3:
-                return (new Vector3(euler.x, euler.z, -euler.y)) * 90f;
-            default:
-				return (new Vector3(euler.x * (isLeft ? -1f : 1f), yaw, -euler.y * (isLeft ? -1f : 1f))) * 90f;
-        }
+        //if (!do_localize)
+			return new Vector3(0, 0, 0);
+        
     }
     public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 10f, bool localize = false)
     {
@@ -488,8 +474,23 @@ public class Joycon
                 max[i] = acc_g[i];
         }
     }
+
+	private Vector3 acc_g_prev, gyr_g_prev;
+	private float err;
+	public Vector3 i_b, j_b, k_b;
+	private Vector3 d_theta, d_theta_g, d_theta_a;
+	private Vector3 i_b_;
+	private Vector3 w_a;
+	int[] mults = {1,1,1,1,1,1};
+	public void set_mults(int[] mults_){
+		mults = mults_;
+	}
+
     private int ProcessIMU(byte[] report_buf)
     {
+
+		// Direction Cosine Matrix method
+		// http://www.starlino.com/dcm_tutorial.html
 
         if (!imu_enabled | state < state_.IMU_DATA_OK)
             return -1;
@@ -502,48 +503,46 @@ public class Joycon
 
         for (int n = 0; n < 3; ++n)
         {
-            // first value not useful
-
             ExtractIMUValues(report_buf, n);
+			float dt_sec = 0.005f * dt;
 
-            if (isLeft)
-            {
-                acc_g.z *= -1;
-                acc_g.y *= -1;
-                gyr_g.y *= -1;
-                gyr_g.z *= -1;
-            }
+			acc_g.x *= mults [0];
+			acc_g.y *= mults [1];
+			acc_g.z *= mults [2];
 
-            acc_g = acc_g.normalized;
+			gyr_g.x *= mults [3];
+			gyr_g.y *= mults [4];
+			gyr_g.z *= mults [5];
+
+			if (isLeft) {
+             	
+			} else {
+				
+			}
+            
             if (first_imu_packet)
             {
-                euler = acc_g;
-                yaw = 0;
+				k_b = -1 * acc_g;
+				i_b = Vector3.forward;
+				j_b = Vector3.Cross (k_b, i_b);
                 first_imu_packet = false;
             }
             else
             {
-                yaw += ((gyr_g.z * Mathf.Cos(euler.y * Mathf.PI / 2) - gyr_g.y * Mathf.Sin(euler.y * Mathf.PI / 2)) * 0.005f * dt);
-                if (Mathf.Abs(euler.x) < 0.1f)
-                {
-                    gyr_est = euler;
-                }
-                else
-                {
-                    // Euler: Ayz, Axz. In radians
-                    Ayz = Mathf.Atan2(euler.y, euler.z) + gyr_g.y * .005f * dt;
-                    Axz = Mathf.Atan2(euler.x, euler.z) + gyr_g.x * .005f * dt;
-
-                    int sign = (Mathf.Cos(Ayz) >= 0) ? 1 : -1;
-                    gyr_est.x = Mathf.Sin(Axz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Tan(Ayz), 2) * Mathf.Pow(Mathf.Cos(Axz), 2));
-                    gyr_est.y = Mathf.Sin(Ayz) / Mathf.Sqrt(1 + Mathf.Pow(Mathf.Cos(Ayz), 2) * Mathf.Pow(Mathf.Tan(Axz), 2));
-                    gyr_est.z = sign * Mathf.Sqrt(1 - Mathf.Pow(gyr_est.x, 2) - Mathf.Pow(gyr_est.y, 2));
-
-                    gyr_est = gyr_est.normalized;
-                }
-                euler = (acc_g + gyr_est * filterweight) / (1 + filterweight);
+				d_theta_g = gyr_g * dt_sec;
+				d_theta_a = Vector3.Cross (k_b, -1 * acc_g - k_b);
+				d_theta = (d_theta_g + d_theta_a * filterweight) / (1 + filterweight);
+				k_b += Vector3.Cross (d_theta, k_b);
+				i_b += Vector3.Cross (d_theta, i_b);
+				j_b += Vector3.Cross (d_theta, j_b);
             }
-            euler = euler.normalized;
+
+			//Correction, ensure new axes are orthogonal
+			err = Vector3.Dot(i_b, j_b) * 0.5f;
+			i_b_ = Vector3.Normalize(i_b - err * j_b);
+			j_b = Vector3.Normalize(j_b - err * i_b);
+			i_b = i_b_;
+			k_b = Vector3.Cross(i_b, j_b);
 
             dt = 1;
         }
@@ -560,9 +559,6 @@ public class Joycon
     }
     public void Recenter()
     {
-        euler[0] = 0;
-        euler[1] = 0;
-        euler[2] = 0;
         first_imu_packet = true;
     }
     private float[] CenterSticks(UInt16[] vals)

@@ -531,7 +531,8 @@ public class Joycon
             {
 				d_theta_g = gyr_g * dt_sec;
 				d_theta_a = Vector3.Cross (k_b, -1 * acc_g - k_b);
-				d_theta = (d_theta_g + d_theta_a * filterweight) / (1 + filterweight);
+				d_theta = (d_theta_g * filterweight + d_theta_a * filterweight) / (1 + filterweight);
+				d_theta = d_theta_a;
 				k_b += Vector3.Cross (d_theta, k_b);
 				i_b += Vector3.Cross (d_theta, i_b);
 				j_b += Vector3.Cross (d_theta, j_b);

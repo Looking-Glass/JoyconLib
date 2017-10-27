@@ -10,6 +10,7 @@ public class JoyconDemo : MonoBehaviour {
     public float[] stick;
     public Vector3 gyro;
     public Vector3 accel;
+    public float alpha = 10f;
 	public Vector3 i_b, j_b, k_b;
 	public int[] mults = { 1, 1, 1, 1, 1, 1 };
 	private GameObject line_x, line_y, line_z;
@@ -71,9 +72,11 @@ public class JoyconDemo : MonoBehaviour {
             // Accel values:  x, y, z axis values (in Gs)
             accel = j.GetAccel();
 
-			k_b = j.k_b * 2;
-			i_b = j.i_b * 2;
-			j_b = j.j_b * 2;
+			k_b = j.k_b;
+			i_b = j.i_b;
+			j_b = j.j_b;
+
+            j.SetFilterCoeff(alpha);
 
 			j.set_mults (mults);
 

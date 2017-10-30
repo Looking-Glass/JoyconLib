@@ -10,7 +10,7 @@ public class JoyconDemo : MonoBehaviour {
     public float[] stick;
     public Vector3 gyro;
     public Vector3 accel;
-    public Vector3 i_b, j_b, k_b, i_g, j_g, k_g;
+    public Quaternion orientation;
 
     void Start ()
     {
@@ -62,29 +62,14 @@ public class JoyconDemo : MonoBehaviour {
 
             stick = j.GetStick();
 
-            // Gyro values: x, y, z axis values (in dps)
+            // Gyro values: x, y, z axis values (in radians per second)
             gyro = j.GetGyro();
 
             // Accel values:  x, y, z axis values (in Gs)
             accel = j.GetAccel();
-            
 
-            i_g = new Vector3(j.j_b.x, j.i_b.x, j.k_b.x);
-            j_g = new Vector3(j.j_b.y, j.i_b.y, j.k_b.y);
-            k_g = new Vector3(j.j_b.z, j.i_b.z, j.k_b.z);
-		}
-    }
-	void OnDrawGizmos(){
-		
-		Gizmos.color = Color.red;
-		Gizmos.DrawRay (transform.position, i_g);
-		Gizmos.color = Color.green;
-		Gizmos.DrawRay (transform.position, j_g);
-		Gizmos.color = Color.blue;
-		Gizmos.DrawRay (transform.position, k_g);
-        Gizmos.color = Color.black;
-        Gizmos.DrawRay(transform.position, Vector3.forward);
-        Gizmos.DrawRay(transform.position, Vector3.up);
-        Gizmos.DrawRay(transform.position, Vector3.right);
+            orientation = j.GetVector();
+            gameObject.transform.rotation = orientation;
+        }
     }
 }

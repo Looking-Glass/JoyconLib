@@ -229,11 +229,9 @@ public class Joycon
     {
         return acc_g;
     }
-    public Vector3 GetVector(int type = 0)
+    public Quaternion GetVector()
     {
-        //if (!do_localize)
-			return new Vector3(0, 0, 0);
-        
+        return Quaternion.LookRotation(new Vector3(j_b.y, i_b.y, k_b.y), new Vector3(j_b.z, i_b.z, k_b.z));
     }
     public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 0.01f, bool localize = false)
     {
@@ -478,7 +476,6 @@ public class Joycon
         }
     }
 
-	private Vector3 acc_g_prev, gyr_g_prev;
 	private float err;
     public Vector3 i_b, j_b, k_b, k_acc;
 	private Vector3 d_theta;

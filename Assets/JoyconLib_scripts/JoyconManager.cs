@@ -7,7 +7,7 @@ public class JoyconManager: MonoBehaviour
 
     // Settings accessible via Unity
     public bool EnableIMU = true;
-    public bool EnableLocalize = false;
+    public bool EnableLocalize = true;
     public byte LEDs = 0xff;
 
     public Joycon j;

@@ -96,9 +96,12 @@ public class Joycon
         {
             return t;
         }
-        public byte[] GetBuffer()
+        public void CopyBuffer(byte[] b)
         {
-            return r;
+            for (int i = 0; i < report_len; ++i)
+            {
+                b[i] = r[i];
+            }
         }
     };
     private struct Rumble
@@ -232,7 +235,7 @@ public class Joycon
 			return new Vector3(0, 0, 0);
         
     }
-    public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 10f, bool localize = false)
+    public int Attach(byte leds_ = 0x0, bool imu = true, float alpha = 0.01f, bool localize = false)
     {
         imu_enabled = imu;
         do_localize = localize & imu;
@@ -244,7 +247,7 @@ public class Joycon
         {
             ptr = HIDapi.hid_enumerate(vendor_id_, 0x0);
             if (ptr == IntPtr.Zero)
-            {
+            { 
                 HIDapi.hid_free_enumeration(ptr);
                 DebugPrint("No Joy-Cons found.", DebugType.ALL);
                 state = state_.NO_JOYCONS;
@@ -380,7 +383,7 @@ public class Joycon
                 lock (reports)
                 {
                     rep = reports.Dequeue();
-                    report_buf = rep.GetBuffer();
+                    rep.CopyBuffer(report_buf);
                 }
                 if (imu_enabled)
                 {
@@ -469,7 +472,7 @@ public class Joycon
         for (int i = 0; i < 3; ++i)
         {
             acc_g[i] = acc_r[i] * 0.00025f;
-            gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00106528069f;
+            gyr_g[i] = (gyr_r[i] - gyr_neutral[i]) * 0.00122187695f;
             if (Math.Abs(acc_g[i]) > Math.Abs(max[i]))
                 max[i] = acc_g[i];
         }
@@ -477,15 +480,12 @@ public class Joycon
 
 	private Vector3 acc_g_prev, gyr_g_prev;
 	private float err;
-	public Vector3 i_b, j_b, k_b;
-	private Vector3 d_theta, d_theta_g, d_theta_a;
+    public Vector3 i_b, j_b, k_b, k_acc;
+	private Vector3 d_theta;
 	private Vector3 i_b_;
-	private Vector3 w_a;
-	int[] mults = {1,1,1,1,1,1};
-	public void set_mults(int[] mults_){
-		mults = mults_;
-	}
-
+	private Vector3 w_a, w_g;
+    private Quaternion vec;
+	
     private int ProcessIMU(byte[] report_buf)
     {
 
@@ -504,38 +504,44 @@ public class Joycon
         for (int n = 0; n < 3; ++n)
         {
             ExtractIMUValues(report_buf, n);
-			float dt_sec = 0.005f * dt;
-
-			if (isLeft) {
-             	
-			} else {
-                
-			}
             
+			float dt_sec = 0.005f * dt;
+            sum[0] += gyr_g.x * dt_sec;
+            sum[1] += gyr_g.y * dt_sec;
+            sum[2] += gyr_g.z * dt_sec;
+
+            if (isLeft)
+            {
+
+            }
+            else
+            {
+             //   gyr_g.y *= -1;
+            }
+
             if (first_imu_packet)
             {
-				k_b = -1 * acc_g;
-				i_b = Vector3.forward;
-				j_b = Vector3.Cross (k_b, i_b);
+                i_b = new Vector3(1, 0, 0);
+                j_b = new Vector3(0, 1, 0);
+                k_b = new Vector3(0, 0, 1);
                 first_imu_packet = false;
             }
             else
             {
-				d_theta_g = gyr_g * dt_sec;
-                Vector3 k_b_1a = -1 * acc_g - k_b;
-                d_theta_a = Vector3.Cross(k_b, k_b_1a);
-				d_theta = (d_theta_g * filterweight + d_theta_a) / (1 + filterweight);
-				k_b += Vector3.Cross (d_theta, k_b);
-				i_b += Vector3.Cross (d_theta, i_b);
-				j_b += Vector3.Cross (d_theta, j_b);
+                k_acc = -Vector3.Normalize(acc_g);
+                w_a = Vector3.Cross(k_b, k_acc);
+                w_g = -gyr_g * dt_sec;
+                d_theta = (filterweight * w_a + w_g) / (1f + filterweight);
+                k_b += Vector3.Cross(d_theta, k_b);
+                i_b += Vector3.Cross(d_theta, i_b);
+                j_b += Vector3.Cross(d_theta, j_b);
+                //Correction, ensure new axes are orthogonal
+                err = Vector3.Dot(i_b, j_b) * 0.5f;
+                i_b_ = Vector3.Normalize(i_b - err * j_b);
+                j_b = Vector3.Normalize(j_b - err * i_b);
+                i_b = i_b_;
+                k_b = Vector3.Cross(i_b, j_b);
             }
-
-			//Correction, ensure new axes are orthogonal
-			err = Vector3.Dot(i_b, j_b) * 0.5f;
-			i_b_ = Vector3.Normalize(i_b - err * j_b);
-			j_b = Vector3.Normalize(j_b - err * i_b);
-			i_b = i_b_;
-			k_b = Vector3.Cross(i_b, j_b);
 
             dt = 1;
         }

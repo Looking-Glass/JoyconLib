@@ -1,6 +1,6 @@
 # JoyconLib
 
-![arglebargle](http://imgur.com/Ye5qp1n.gif)
+<img src="https://media.giphy.com/media/l4EoOcaWa6utOFO6c/giphy.gif" width="100" height="100"/>
 
 Nintendo Switch Joy-Con library for Unity. Featuring: button/stick polling, HD rumble, and accelerometer data processing.
 
@@ -11,5 +11,3 @@ With thanks/apologies to [CTCaer](https://github.com/ctcaer/jc_toolkit/), [dekuN
 Uses C# glue code and [HIDAPI](https://github.com/signal11/hidapi) binaries from [Unity-Wiimote](https://github.com/Flafla2/Unity-Wiimote)
 
 GetVector method (attempt at sensor fusion implementation) is still unreliable! Enable in JoyconManager at your own risk. Sensor fusion code is in Joycon.ProcessIMU. Feel free to submit pull requests; sensor fusion code based on [this guide](starlino.com/imu_guide.html).
-
-if you have errors cloning this, run `git lfs install --skip-smudge`.

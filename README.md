@@ -1,4 +1,7 @@
 # JoyconLib
+
+![](https://github.com/Looking-Glass/JoyconLib/releases/download/0.5/giphy.gif)
+
 Nintendo Switch Joy-Con library for Unity. Featuring: button/stick polling, HD rumble, and accelerometer data processing.
 
 To use, add an empty GameObject to your scene and attach JoyconManager.cs. Look at JoyconDemo.cs for sample code to get you up and running.

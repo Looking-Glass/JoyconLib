@@ -1,6 +1,6 @@
 # JoyconLib
 
-<img src="https://media.giphy.com/media/l4EoOcaWa6utOFO6c/giphy.gif" width="100" height="100"/>
+![Imgur](https://i.imgur.com/BbV6Srg.gif)
 
 Nintendo Switch Joy-Con library for Unity. Featuring: button/stick polling, HD rumble, and accelerometer data processing.
 

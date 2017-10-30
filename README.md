@@ -1,6 +1,6 @@
 # JoyconLib
 
-![](https://github.com/Looking-Glass/JoyconLib/releases/download/0.5/giphy.gif)
+![arglebargle](http://imgur.com/Ye5qp1n.gif)
 
 Nintendo Switch Joy-Con library for Unity. Featuring: button/stick polling, HD rumble, and accelerometer data processing.
 

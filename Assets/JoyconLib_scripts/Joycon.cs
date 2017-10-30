@@ -18,7 +18,7 @@ public class Joycon
         IMU,
         RUMBLE,
     };
-	public DebugType debug_type = DebugType.COMMS;
+	public DebugType debug_type = DebugType.IMU;
     public bool isLeft;
     public enum state_ : uint
     {
@@ -302,7 +302,7 @@ public class Joycon
     public void Detach()
     {
         stop_polling = true;
-        PrintArray(max, format: "max {0:S}", d: DebugType.IMU);
+        PrintArray(max, format: "Max {0:S}", d: DebugType.IMU);
         PrintArray(sum, format: "Sum {0:S}", d: DebugType.IMU);
         if (state > state_.NO_JOYCONS)
         {
@@ -512,11 +512,10 @@ public class Joycon
 
             if (isLeft)
             {
-
-            }
-            else
-            {
-             //   gyr_g.y *= -1;
+                gyr_g.y *= -1;
+                gyr_g.z *= -1;
+                acc_g.y *= -1;
+                acc_g.z *= -1;
             }
 
             if (first_imu_packet)
@@ -645,14 +644,22 @@ public class Joycon
 
         buf_ = ReadSPI(0x60, (isLeft ? (byte)0x86 : (byte)0x98), 16);
         deadzone = (UInt16)((buf_[4] << 8) & 0xF00 | buf_[3]);
-        buf_ = ReadSPI(0x60, 0x28, 10
-            );
-        gyr_neutral[0] = (Int16)(buf_[4] | ((buf_[5] << 8) & 0xff00));
-        gyr_neutral[1] = (Int16)(buf_[6] | ((buf_[7] << 8) & 0xff00));
-        gyr_neutral[2] = (Int16)(buf_[8] | ((buf_[9] << 8) & 0xff00));
 
-        PrintArray(gyr_neutral, len: 3, d: DebugType.IMU, format: "Gyro neutral position: {0:S}");
+        buf_ = ReadSPI(0x80, 0x34, 10);
+        gyr_neutral[0] = (Int16)(buf_[0] | ((buf_[1] << 8) & 0xff00));
+        gyr_neutral[1] = (Int16)(buf_[2] | ((buf_[3] << 8) & 0xff00));
+        gyr_neutral[2] = (Int16)(buf_[4] | ((buf_[5] << 8) & 0xff00));
+        PrintArray(gyr_neutral, len: 3, d: DebugType.IMU, format: "User gyro neutral position: {0:S}");
 
+        // This is an extremely messy way of checking to see whether there is user stick calibration data present, but I've seen conflicting user calibration data on blank Joy-Cons. Worth another look eventually.
+        if (gyr_neutral[0] + gyr_neutral[1] + gyr_neutral[2] == -3 || Math.Abs(gyr_neutral[0]) > 100 || Math.Abs(gyr_neutral[1]) > 100 || Math.Abs(gyr_neutral[2]) > 100)
+        {
+            buf_ = ReadSPI(0x60, 0x29, 10);
+            gyr_neutral[0] = (Int16)(buf_[3] | ((buf_[4] << 8) & 0xff00));
+            gyr_neutral[1] = (Int16)(buf_[5] | ((buf_[6] << 8) & 0xff00));
+            gyr_neutral[2] = (Int16)(buf_[7] | ((buf_[8] << 8) & 0xff00));
+            PrintArray(gyr_neutral, len: 3, d: DebugType.IMU, format: "Factory gyro neutral position: {0:S}");
+        }
     }
     private byte[] ReadSPI(byte addr1, byte addr2, uint len, bool print = false)
     {

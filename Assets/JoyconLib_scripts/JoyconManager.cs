@@ -57,6 +57,7 @@ public class JoyconManager: MonoBehaviour
 						isLeft = true;
 						Debug.Log ("Left Joy-Con connected.");
 					} else if (enumerate.product_id == product_r) {
+						isLeft = false;
 						Debug.Log ("Right Joy-Con connected.");
 					} else {
 						Debug.Log ("Non Joy-Con input device skipped.");

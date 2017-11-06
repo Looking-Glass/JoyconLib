@@ -231,7 +231,7 @@ public class Joycon
     }
     public Quaternion GetVector()
     {
-        return Quaternion.LookRotation(new Vector3(j_b.y, i_b.y, k_b.y), new Vector3(j_b.z, i_b.z, k_b.z));
+		return Quaternion.LookRotation(new Vector3(j_b.x, i_b.x, k_b.x), -(new Vector3(j_b.z, i_b.z, k_b.z)));
     }
 	public int Attach(byte leds_ = 0x0)
     {

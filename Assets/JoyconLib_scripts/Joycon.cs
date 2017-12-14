@@ -74,7 +74,9 @@ public class Joycon
     private Int16[] gyr_r = { 0, 0, 0 };
     private Int16[] gyr_neutral = { 0, 0, 0 };
     private Vector3 gyr_g;
-
+ private Int16[] gyr_r = { 0, 0, 0 };
+    private Int16[] gyr_neutral = { 0, 0, 0 };
+    private Vector3 gyr_g;
 	private bool do_localize;
     private float filterweight;
     private const uint report_len = 49;

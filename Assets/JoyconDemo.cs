@@ -10,6 +10,7 @@ public class JoyconDemo : MonoBehaviour {
     public float[] stick;
     public Vector3 gyro;
     public Vector3 accel;
+    public int jc_ind = 0;
     public Quaternion orientation;
 
     void Start ()
@@ -25,7 +26,7 @@ public class JoyconDemo : MonoBehaviour {
 		// make sure the Joycon only gets checked if attached
 		if (joycons.Count > 0)
         {
-			Joycon j = joycons [0];
+			Joycon j = joycons [jc_ind];
 			// GetButtonDown checks if a button has been pressed (not held)
             if (j.GetButtonDown(Joycon.Button.SHOULDER_2))
             {

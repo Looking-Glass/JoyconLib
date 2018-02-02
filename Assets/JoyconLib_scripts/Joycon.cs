@@ -19,7 +19,7 @@ public class Joycon
         IMU,
         RUMBLE,
     };
-	public DebugType debug_type = DebugType.IMU;
+	public DebugType debug_type = DebugType.NONE;
     public bool isLeft;
     public enum state_ : uint
     {
@@ -72,9 +72,6 @@ public class Joycon
     private Vector3 acc_g;
 
     private Int16[] gyr_r = { 0, 0, 0 };
-    private Int16[] gyr_neutral = { 0, 0, 0 };
-    private Vector3 gyr_g;
- private Int16[] gyr_r = { 0, 0, 0 };
     private Int16[] gyr_neutral = { 0, 0, 0 };
     private Vector3 gyr_g;
 	private bool do_localize;
@@ -233,7 +230,13 @@ public class Joycon
     }
     public Quaternion GetVector()
     {
-		return Quaternion.LookRotation(new Vector3(j_b.x, i_b.x, k_b.x), -(new Vector3(j_b.z, i_b.z, k_b.z)));
+        Vector3 v1 = new Vector3(j_b.x, i_b.x, k_b.x);
+        Vector3 v2 = -(new Vector3(j_b.z, i_b.z, k_b.z));
+        if (v2 != Vector3.zero){
+		    return Quaternion.LookRotation(v1, v2);
+        }else{
+            return Quaternion.identity;
+        }
     }
 	public int Attach(byte leds_ = 0x0)
     {
@@ -312,7 +315,7 @@ public class Joycon
         {
             SendRumble(rumble_obj.GetData());
             int a = ReceiveRaw();
-
+            a = ReceiveRaw();
             if (a > 0)
             {
                 state = state_.IMU_DATA_OK;
@@ -367,6 +370,9 @@ public class Joycon
                 DebugPrint(string.Format("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:X2}. Lag to dequeue: {3:s}. Lag between packets (expect 15ms): {4:s}",
                     reports.Count, report_buf[0], report_buf[1], System.DateTime.Now.Subtract(rep.GetTime()), rep.GetTime().Subtract(ts_prev)), DebugType.THREADING);
                 ts_prev = rep.GetTime();
+                if (reports.Count > 1){
+                    Debug.Log(reports.Count);
+                }
             }
             ProcessButtonsAndStick(report_buf);
 			if (rumble_obj.timed_rumble) {
@@ -503,7 +509,6 @@ public class Joycon
                 i_b = i_b_;
                 k_b = Vector3.Cross(i_b, j_b);
             }
-
             dt = 1;
         }
         timestamp = report_buf[1] + 2;

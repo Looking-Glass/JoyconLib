@@ -64,7 +64,7 @@ public class JoyconManager: MonoBehaviour
 					}
 					IntPtr handle = HIDapi.hid_open_path (enumerate.path);
 					HIDapi.hid_set_nonblocking (handle, 1);
-					j.Add (new Joycon (handle, EnableIMU, EnableLocalize & EnableIMU, 0.04f, isLeft));
+					j.Add (new Joycon (handle, EnableIMU, EnableLocalize & EnableIMU, 0.05f, isLeft));
 					++i;
 				}
 				ptr = enumerate.next;
@@ -89,8 +89,7 @@ public class JoyconManager: MonoBehaviour
     {
 		for (int i = 0; i < j.Count; ++i)
 		{
-			Joycon jc = j [i];
-			jc.Update ();
+			j[i].Update();
 		}
     }
 
@@ -98,8 +97,7 @@ public class JoyconManager: MonoBehaviour
     {
 		for (int i = 0; i < j.Count; ++i)
 		{
-			Joycon jc = j [i];
-			jc.Detach ();
+			j[i].Detach ();
 		}
     }
 }

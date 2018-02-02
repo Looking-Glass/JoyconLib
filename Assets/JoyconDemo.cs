@@ -70,6 +70,11 @@ public class JoyconDemo : MonoBehaviour {
             accel = j.GetAccel();
 
             orientation = j.GetVector();
+			if (j.GetButton(Joycon.Button.DPAD_UP)){
+				gameObject.GetComponent<Renderer>().material.color = Color.red;
+			} else{
+				gameObject.GetComponent<Renderer>().material.color = Color.blue;
+			}
             gameObject.transform.rotation = orientation;
         }
     }

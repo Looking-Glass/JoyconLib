@@ -370,9 +370,6 @@ public class Joycon
                 DebugPrint(string.Format("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:X2}. Lag to dequeue: {3:s}. Lag between packets (expect 15ms): {4:s}",
                     reports.Count, report_buf[0], report_buf[1], System.DateTime.Now.Subtract(rep.GetTime()), rep.GetTime().Subtract(ts_prev)), DebugType.THREADING);
                 ts_prev = rep.GetTime();
-                if (reports.Count > 1){
-                    Debug.Log(reports.Count);
-                }
             }
             ProcessButtonsAndStick(report_buf);
 			if (rumble_obj.timed_rumble) {

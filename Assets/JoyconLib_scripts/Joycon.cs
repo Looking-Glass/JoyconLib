@@ -77,6 +77,7 @@ public class Joycon
 	private bool do_localize;
     private float filterweight;
     private const uint report_len = 49;
+    private int send_rumble = 0;
     private struct Report
     {
         byte[] r;
@@ -144,6 +145,7 @@ public class Joycon
                 rumble_data[1] = 0x1;
                 rumble_data[2] = 0x40;
                 rumble_data[3] = 0x40;
+                send_rumble++;
             }else{
                 l_f = clamp(l_f, 40.875885f, 626.286133f);
                 amp = clamp(amp, 0.0f, 1.0f);
@@ -173,6 +175,7 @@ public class Joycon
                 rumble_data[1] += hf_amp;
                 rumble_data[2] += (byte)((lf_amp >> 8) & 0xff);
                 rumble_data[3] += (byte)(lf_amp & 0xff);
+                send_rumble = 8;
             }
             for (int i = 0; i < 4; ++i)
             {
@@ -321,7 +324,7 @@ public class Joycon
         {
             SendRumble(rumble_obj.GetData());
             int a = ReceiveRaw();
-            a = ReceiveRaw();
+            //a = ReceiveRaw();
             if (a > 0)
             {
                 state = state_.IMU_DATA_OK;
@@ -558,6 +561,10 @@ public class Joycon
     }
     private void SendRumble(byte[] buf)
     {
+        if (send_rumble < 8)
+            return;
+        else
+            send_rumble = 0;
         byte[] buf_ = new byte[report_len];
         buf_[0] = 0x10;
         buf_[1] = global_count;

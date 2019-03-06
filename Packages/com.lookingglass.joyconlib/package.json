@@ -1,0 +1,14 @@
+{
+    "name": "com.lookingglass.joyconlib",
+    "displayName": "JoyConLib",
+    "version": "0.6.0",
+    "unity": "2018.2",
+    "description": "Nintendo Switch Joy-Con library for Unity. Featuring: button/stick polling, HD rumble, and accelerometer data processing.",
+    "keywords": [
+        "joy-con",
+        "input"
+    ],
+    "dependencies": {
+    },
+    "category": "Unity"
+}

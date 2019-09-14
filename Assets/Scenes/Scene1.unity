@@ -121,7 +121,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 175246628}
-  - component: {fileID: 175246629}
+  - component: {fileID: 175246627}
   m_Layer: 0
   m_Name: JoyconManager
   m_TagString: Untagged
@@ -129,6 +129,19 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &175246627
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 175246626}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c6551d61e41843b6999761777eeffca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnableIMU: 1
+  EnableLocalize: 1
 --- !u!4 &175246628
 Transform:
   m_ObjectHideFlags: 0
@@ -142,19 +155,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &175246629
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 175246626}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3e8e1046766c26c439923291e8f91738, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  EnableIMU: 1
-  EnableLocalize: 1
 --- !u!1 &195250745
 GameObject:
   m_ObjectHideFlags: 0
@@ -166,7 +166,7 @@ GameObject:
   - component: {fileID: 195250749}
   - component: {fileID: 195250748}
   - component: {fileID: 195250747}
-  - component: {fileID: 195250751}
+  - component: {fileID: 195250746}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -174,6 +174,22 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &195250746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 195250745}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f1b2538bbb98449beb5519b7a0e9c5cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stick: []
+  gyro: {x: 0, y: 0, z: 0}
+  accel: {x: 0, y: 0, z: 0}
+  jc_ind: 0
+  orientation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!23 &195250747
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -189,7 +205,7 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RenderingLayerMask: 4294967295
   m_Materials:
-  - {fileID: 2100000, guid: 287261b329238134596f8b6c429d7e1f, type: 2}
+  - {fileID: 2100000, guid: a5f3053531d9c46a296199f3997f79e8, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -241,22 +257,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &195250751
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 195250745}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc52f9fe5c757e04ba4c9efc741b0d8a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  stick: []
-  gyro: {x: 0, y: 0, z: 0}
-  accel: {x: 0, y: 0, z: 0}
-  jc_ind: 0
-  orientation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &250149498
 GameObject:
   m_ObjectHideFlags: 0
@@ -284,7 +284,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 250149498}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc52f9fe5c757e04ba4c9efc741b0d8a, type: 3}
+  m_Script: {fileID: 11500000, guid: f1b2538bbb98449beb5519b7a0e9c5cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   stick: []
@@ -307,7 +307,7 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RenderingLayerMask: 4294967295
   m_Materials:
-  - {fileID: 2100000, guid: 287261b329238134596f8b6c429d7e1f, type: 2}
+  - {fileID: 2100000, guid: a5f3053531d9c46a296199f3997f79e8, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

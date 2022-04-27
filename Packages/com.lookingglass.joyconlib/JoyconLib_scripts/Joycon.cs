@@ -348,6 +348,12 @@ public class Joycon
     {
         if (state > state_.NO_JOYCONS)
         {
+            for (int i = 0; i < buttons.Length; ++i)
+            {
+                buttons_up[i] = false;
+                buttons_down[i] = false;
+            }		
+		
             byte[] report_buf = new byte[report_len];
             while (reports.Count > 0)
             {

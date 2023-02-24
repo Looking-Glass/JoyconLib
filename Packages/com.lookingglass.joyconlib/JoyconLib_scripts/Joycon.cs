@@ -348,6 +348,12 @@ public class Joycon
     {
         if (state > state_.NO_JOYCONS)
         {
+            for (int i = 0; i < buttons.Length; ++i)
+            {
+                buttons_up[i] = false;
+                buttons_down[i] = false;
+            }
+
             byte[] report_buf = new byte[report_len];
             while (reports.Count > 0)
             {
@@ -373,7 +379,7 @@ public class Joycon
                     DebugPrint(string.Format("Duplicate timestamp dequeued. TS: {0:X2}", ts_de), DebugType.THREADING);
                 }
                 ts_de = report_buf[1];
-                DebugPrint(string.Format("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:X2}. Lag to dequeue: {3:s}. Lag between packets (expect 15ms): {4:s}",
+                DebugPrint(string.Format("Dequeue. Queue length: {0:d}. Packet ID: {1:X2}. Timestamp: {2:X2}. Lag to dequeue: {3:t}. Lag between packets (expect 15ms): {4:g}",
                     reports.Count, report_buf[0], report_buf[1], System.DateTime.Now.Subtract(rep.GetTime()), rep.GetTime().Subtract(ts_prev)), DebugType.THREADING);
                 ts_prev = rep.GetTime();
             }
@@ -412,6 +418,7 @@ public class Joycon
             buttons[(int)Button.DPAD_UP] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x02 : 0x02)) != 0;
             buttons[(int)Button.DPAD_LEFT] = (report_buf[3 + (isLeft ? 2 : 0)] & (isLeft ? 0x08 : 0x01)) != 0;
             buttons[(int)Button.HOME] = ((report_buf[4] & 0x10) != 0);
+            buttons[(int)Button.CAPTURE] = ((report_buf[4] & 0x20) != 0);
             buttons[(int)Button.MINUS] = ((report_buf[4] & 0x01) != 0);
             buttons[(int)Button.PLUS] = ((report_buf[4] & 0x02) != 0);
             buttons[(int)Button.STICK] = ((report_buf[4] & (isLeft ? 0x08 : 0x04)) != 0);
